@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    hash::{Hash, Hasher},
+};
 use weighted_container::{WeightedHeapArray, WeightedVector};
 
-mod generators;
+pub mod generators;
 mod newtypes;
 mod weighted_container;
 
@@ -27,37 +29,37 @@ pub enum Ability {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AbilityModifications(Arc<[AbilityBoost]>);
+pub struct AbilityModifications(Vec<AbilityBoost>);
 
 impl AbilityModifications {
-    pub fn new(value: Vec<AbilityBoost>) -> Self {
-        Self(value.into_boxed_slice().into())
+    pub fn new(value: &[AbilityBoost]) -> Self {
+        Self(value.into())
     }
 }
 
 impl Default for AbilityModifications {
     fn default() -> Self {
-        Self(Vec::new().into_boxed_slice().into())
+        Self(Vec::new())
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[repr(transparent)]
-pub struct Trait(Arc<str>);
+pub struct Trait(String);
 
 impl Trait {
     pub fn new(value: impl AsRef<str>) -> Self {
-        Self(String::from(value.as_ref()).into_boxed_str().into())
+        Self(value.as_ref().into())
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[repr(transparent)]
-pub struct Sense(Arc<str>);
+pub struct Sense(String);
 
 impl Sense {
     pub fn new(value: impl AsRef<str>) -> Self {
-        Self(String::from(value.as_ref()).into_boxed_str().into())
+        Self(value.as_ref().into())
     }
 }
 
@@ -68,15 +70,15 @@ pub trait NamedElement {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Language {
-    traits: Arc<[Trait]>,
-    name: Arc<str>,
+    traits: Vec<Trait>,
+    name: String,
 }
 
 impl Language {
     pub fn new(traits: Vec<Trait>, name: impl AsRef<str>) -> Self {
         Self {
-            traits: traits.into_boxed_slice().into(),
-            name: String::from(name.as_ref()).into_boxed_str().into(),
+            traits: traits,
+            name: String::from(name.as_ref()),
         }
     }
 }
@@ -100,22 +102,47 @@ pub enum Size {
     Garganutan,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Ancestry {
-    traits: Arc<[Trait]>,
-    name: Arc<str>,
-    ability_modifications: AbilityModifications,
-    languages: Arc<[Language]>,
-    senses: Arc<[Sense]>,
-    size: Size,
-    speed: u16,
-    possible_eye_colors: Option<WeightedHeapArray<Arc<str>>>,
-    possible_hair_colors: Option<WeightedHeapArray<Arc<str>>>,
-    mutation_probabilities: WeightedHeapArray<Mutation>,
+    pub traits: Vec<Trait>,
+    pub name: String,
+    pub ability_modifications: AbilityModifications,
+    pub languages: Vec<Language>,
+    pub senses: Vec<Sense>,
+    pub size: Size,
+    pub speed: u16,
+    pub possible_eye_colors: Option<HashMap<String, i32>>,
+    pub possible_hair_colors: Option<HashMap<String, i32>>,
+    pub possible_hair_length: Option<HashMap<String, i32>>,
+    pub possible_hair_type: Option<HashMap<String, i32>>,
+    pub mutation_probabilities: HashMap<Mutation, f64>,
+    pub specimen_names_per_sex: HashMap<String, HashMap<String, i32>>,
+}
+impl Eq for Heritage {}
+impl Eq for Ancestry {}
+impl PartialEq for Heritage {
+    fn eq(&self, other: &Self) -> bool {
+        self.name() == other.name()
+    }
+}
+impl PartialEq for Ancestry {
+    fn eq(&self, other: &Self) -> bool {
+        self.name() == other.name()
+    }
+}
+impl Hash for Heritage {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+impl Hash for Ancestry {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-enum Mutation {
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+pub enum Mutation {
     Heterochromia,
 }
 
@@ -128,19 +155,27 @@ impl Ancestry {
         senses: Vec<Sense>,
         size: Size,
         speed: u16,
-        possible_eye_colors: Option<WeightedHeapArray<Arc<str>>>,
-        possible_hair_colors: Option<WeightedHeapArray<Arc<str>>>,
+        possible_eye_colors: Option<HashMap<String, i32>>,
+        possible_hair_colors: Option<HashMap<String, i32>>,
+        possible_hair_length: Option<HashMap<String, i32>>,
+        possible_hair_type: Option<HashMap<String, i32>>,
+        mutation_probabilities: HashMap<Mutation, f64>,
+        specimen_names_per_sex: HashMap<String, HashMap<String, i32>>,
     ) -> Self {
         Self {
-            traits: traits.into_boxed_slice().into(),
-            name: String::from(name.as_ref()).into_boxed_str().into(),
+            traits: traits,
+            name: String::from(name.as_ref()),
             ability_modifications,
-            languages: languages.into_boxed_slice().into(),
-            senses: senses.into_boxed_slice().into(),
+            languages: languages,
+            senses: senses,
             size,
             speed,
             possible_eye_colors,
             possible_hair_colors,
+            possible_hair_length,
+            possible_hair_type,
+            mutation_probabilities,
+            specimen_names_per_sex,
         }
     }
 }
@@ -157,17 +192,17 @@ impl NamedElement for Ancestry {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ValidAncestries {
     Any,
-    AllOf(Arc<[Arc<str>]>),
+    AllOf(Vec<String>),
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Heritage {
-    traits: Arc<[Trait]>,
-    name: Arc<str>,
+    traits: Vec<Trait>,
+    name: String,
     valid_ancestries: ValidAncestries,
 
-    additional_eye_colors: WeightedHeapArray<Arc<str>>,
-    additional_hair_colors: WeightedHeapArray<Arc<str>>,
-    force_heterochromia: Option<Arc<str>>,
+    additional_eye_colors: HashMap<String, i32>,
+    additional_hair_colors: HashMap<String, i32>,
+    force_heterochromia: Option<String>,
 }
 
 impl Heritage {
@@ -175,30 +210,17 @@ impl Heritage {
         traits: Vec<Trait>,
         name: impl AsRef<str>,
         valid_ancestries: ValidAncestries,
-        additional_eye_colors: WeightedVector<String>,
-        additional_hair_colors: WeightedVector<String>,
+        additional_eye_colors: HashMap<String, i32>,
+        additional_hair_colors: HashMap<String, i32>,
         force_heterochromia: Option<&str>,
     ) -> Self {
         Self {
-            traits: traits.into_boxed_slice().into(),
-            name: String::from(name.as_ref()).into_boxed_str().into(),
+            traits,
+            name: String::from(name.as_ref()),
             valid_ancestries,
-            additional_eye_colors: WeightedHeapArray(
-                additional_eye_colors
-                    .map_elements(|element| element.into_boxed_str().into())
-                    .0
-                    .into_boxed_slice()
-                    .into(),
-            ),
-            additional_hair_colors: WeightedHeapArray(
-                additional_hair_colors
-                    .map_elements(|element| element.into_boxed_str().into())
-                    .0
-                    .into_boxed_slice()
-                    .into(),
-            ),
-            force_heterochromia: force_heterochromia
-                .map(|x| String::from(x).into_boxed_str().into()),
+            additional_eye_colors,
+            additional_hair_colors,
+            force_heterochromia: force_heterochromia.map(|x| String::from(x)),
         }
     }
 }
@@ -221,7 +243,7 @@ pub enum Skill {
     Deception,
     Diplomacy,
     Intimidation,
-    Lore(Arc<str>),
+    Lore(String),
     Medicine,
     Nature,
     Occultism,
@@ -241,13 +263,23 @@ pub enum Proficienty {
     Legendary,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Background {
-    name: Arc<str>,
-    traits: Arc<[Trait]>,
-    trainings: Arc<[Skill]>,
+    name: String,
+    traits: Vec<Trait>,
+    trainings: Vec<Skill>,
 }
-
+impl PartialEq for Background {
+    fn eq(&self, other: &Self) -> bool {
+        self.name() == other.name()
+    }
+}
+impl Hash for Background {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+impl Eq for Background {}
 impl NamedElement for Background {
     fn name(&self) -> &str {
         &self.name
@@ -260,13 +292,9 @@ impl NamedElement for Background {
 impl Background {
     pub fn new(name: impl AsRef<str>, traits: Vec<Trait>, trainings: HashSet<Skill>) -> Self {
         Self {
-            name: String::from(name.as_ref()).into_boxed_str().into(),
-            traits: traits.into_boxed_slice().into(),
-            trainings: trainings
-                .into_iter()
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
-                .into(),
+            name: String::from(name.as_ref()),
+            traits,
+            trainings: trainings.into_iter().collect::<Vec<_>>().into(),
         }
     }
 
@@ -277,10 +305,10 @@ impl Background {
 
 #[derive(Debug)]
 pub struct NpcOptions {
-    ancestry: Option<Ancestry>,
-    heritage: Option<Heritage>,
-    background: Option<Background>,
-    ancestry_weights: Option<AncestryWeights>,
+    pub ancestry: Option<Ancestry>,
+    pub heritage: Option<Heritage>,
+    pub background: Option<Background>,
+    pub ancestry_weights: Option<AncestryWeights>,
 }
 
 #[macro_export]

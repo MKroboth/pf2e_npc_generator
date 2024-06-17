@@ -1,0 +1,35 @@
+#![enable(unwrap_newtypes)]
+{
+    Heritage(
+        traits: [],
+        name: "Aiuvarin",
+        valid_ancestries: Any,
+        additional_eye_colors: {},
+        additional_hair_colors: {},
+        force_heterochromia: None,
+    ): 20,
+    Heritage(
+        traits: [],
+        name: "Dromaar",
+        valid_ancestries: Any,
+        additional_eye_colors: {},
+        additional_hair_colors: {},
+        force_heterochromia: None,
+    ): 10,
+    Heritage(
+        traits: [],
+        name: "Changeling",
+        valid_ancestries: Any,
+        additional_eye_colors: {},
+        additional_hair_colors: {},
+        force_heterochromia: None,
+    ): 1,
+    Heritage(
+        traits: [],
+        name: "Nephilim",
+        valid_ancestries: Any,
+        additional_eye_colors: {},
+        additional_hair_colors: {},
+        force_heterochromia: None,
+    ): -5,
+}
