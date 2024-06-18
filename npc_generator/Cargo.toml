@@ -6,7 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+eframe = "0.27.2"
+egui = "0.27.2"
 npc_generator_core = {path = "../npc_generator_core" }
 rand = "0.8.5"
+rayon = "1.10.0"
 ron = "0.8.1"
-stderrlog = "0.6.0"

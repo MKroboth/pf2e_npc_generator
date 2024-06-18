@@ -1,13 +1,18 @@
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     hash::{Hash, Hasher},
+    ops::Range,
 };
-use weighted_container::{WeightedHeapArray, WeightedVector};
 
 pub mod generators;
 mod newtypes;
-mod weighted_container;
+
+mod heritage;
+pub use heritage::*;
+mod ancestry;
+pub use ancestry::*;
 
 pub use newtypes::*;
 
@@ -43,7 +48,7 @@ impl Default for AbilityModifications {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct Trait(String);
 
@@ -77,7 +82,7 @@ pub struct Language {
 impl Language {
     pub fn new(traits: Vec<Trait>, name: impl AsRef<str>) -> Self {
         Self {
-            traits: traits,
+            traits,
             name: String::from(name.as_ref()),
         }
     }
@@ -102,136 +107,91 @@ pub enum Size {
     Garganutan,
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
+pub struct DiceFormula(pub i8, pub Die);
+impl DiceFormula {
+    pub fn roll(&self, mut rng: &mut impl Rng) -> i32 {
+        let mut result: i32 = 0;
+        for _ in 0..self.0 {
+            result += self.1.roll(&mut rng) as i32;
+        }
+        result
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
+pub enum Die {
+    D4,
+    D6,
+    D8,
+    D10,
+    D12,
+    D20,
+}
+
+impl Die {
+    pub fn roll(&self, rng: &mut impl Rng) -> i8 {
+        rng.gen_range(match self {
+            Die::D4 => 1..=4,
+            Die::D6 => 1..=6,
+            Die::D8 => 1..=8,
+            Die::D10 => 1..=10,
+            Die::D12 => 1..=12,
+            Die::D20 => 1..=20,
+        })
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Ancestry {
-    pub traits: Vec<Trait>,
-    pub name: String,
-    pub ability_modifications: AbilityModifications,
-    pub languages: Vec<Language>,
-    pub senses: Vec<Sense>,
-    pub size: Size,
-    pub speed: u16,
-    pub possible_eye_colors: Option<HashMap<String, i32>>,
-    pub possible_hair_colors: Option<HashMap<String, i32>>,
-    pub possible_hair_length: Option<HashMap<String, i32>>,
-    pub possible_hair_type: Option<HashMap<String, i32>>,
-    pub mutation_probabilities: HashMap<Mutation, f64>,
-    pub specimen_names_per_sex: HashMap<String, HashMap<String, i32>>,
-}
-impl Eq for Heritage {}
-impl Eq for Ancestry {}
-impl PartialEq for Heritage {
-    fn eq(&self, other: &Self) -> bool {
-        self.name() == other.name()
-    }
-}
-impl PartialEq for Ancestry {
-    fn eq(&self, other: &Self) -> bool {
-        self.name() == other.name()
-    }
-}
-impl Hash for Heritage {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
-    }
-}
-impl Hash for Ancestry {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
-    }
+pub struct AgeRanges {
+    pub child: u64,
+    pub youth: u64,
+    pub adulthood: u64,
+    pub middle_age: u64,
+    pub old: u64,
+    pub venerable: u64,
+    pub lifespan: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-pub enum Mutation {
-    Heterochromia,
-}
-
-impl Ancestry {
-    pub fn new(
-        traits: Vec<Trait>,
-        name: impl AsRef<str>,
-        ability_modifications: AbilityModifications,
-        languages: Vec<Language>,
-        senses: Vec<Sense>,
-        size: Size,
-        speed: u16,
-        possible_eye_colors: Option<HashMap<String, i32>>,
-        possible_hair_colors: Option<HashMap<String, i32>>,
-        possible_hair_length: Option<HashMap<String, i32>>,
-        possible_hair_type: Option<HashMap<String, i32>>,
-        mutation_probabilities: HashMap<Mutation, f64>,
-        specimen_names_per_sex: HashMap<String, HashMap<String, i32>>,
-    ) -> Self {
-        Self {
-            traits: traits,
-            name: String::from(name.as_ref()),
-            ability_modifications,
-            languages: languages,
-            senses: senses,
-            size,
-            speed,
-            possible_eye_colors,
-            possible_hair_colors,
-            possible_hair_length,
-            possible_hair_type,
-            mutation_probabilities,
-            specimen_names_per_sex,
+impl AgeRanges {
+    pub fn get(&self, range: AgeRange) -> Range<u64> {
+        match range {
+            AgeRange::Infant => 0..self.child,
+            AgeRange::Child => self.child..self.youth,
+            AgeRange::Youth => self.youth..self.adulthood,
+            AgeRange::Adult => self.adulthood..self.middle_age,
+            AgeRange::MiddleAged => self.middle_age..self.old,
+            AgeRange::Old => self.old..self.venerable,
+            AgeRange::Venerable => self.venerable..self.lifespan + 1,
         }
     }
 }
 
-impl NamedElement for Ancestry {
-    fn traits(&self) -> &[Trait] {
-        &self.traits
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Ord)]
+pub enum AgeRange {
+    Infant,
+    Child,
+    Youth,
+    Adult,
+    MiddleAged,
+    Old,
+    Venerable,
+}
+
+impl Default for AgeRange {
+    fn default() -> Self {
+        AgeRange::Adult
     }
-    fn name(&self) -> &str {
-        &self.name
-    }
+}
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+pub enum Mutation {
+    Heterochromia,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ValidAncestries {
     Any,
     AllOf(Vec<String>),
-}
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Heritage {
-    traits: Vec<Trait>,
-    name: String,
-    valid_ancestries: ValidAncestries,
-
-    additional_eye_colors: HashMap<String, i32>,
-    additional_hair_colors: HashMap<String, i32>,
-    force_heterochromia: Option<String>,
-}
-
-impl Heritage {
-    pub fn new(
-        traits: Vec<Trait>,
-        name: impl AsRef<str>,
-        valid_ancestries: ValidAncestries,
-        additional_eye_colors: HashMap<String, i32>,
-        additional_hair_colors: HashMap<String, i32>,
-        force_heterochromia: Option<&str>,
-    ) -> Self {
-        Self {
-            traits,
-            name: String::from(name.as_ref()),
-            valid_ancestries,
-            additional_eye_colors,
-            additional_hair_colors,
-            force_heterochromia: force_heterochromia.map(|x| String::from(x)),
-        }
-    }
-}
-
-impl NamedElement for Heritage {
-    fn traits(&self) -> &[Trait] {
-        &self.traits
-    }
-    fn name(&self) -> &str {
-        &self.name
-    }
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Serialize, Deserialize)]
