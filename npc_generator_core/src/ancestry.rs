@@ -6,7 +6,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbilityModifications, AgeRange, AgeRanges, Language, Mutation, NamedElement, Sense, Size, Trait,
+    AbilityModifications, AgeRange, AgeRanges, Language, Mutation, NamedElement, Sense, Size,
+    Trait, WeightMap,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -18,14 +19,14 @@ pub struct Ancestry {
     pub senses: Vec<Sense>,
     pub size: Size,
     pub speed: u16,
-    pub possible_eye_colors: Option<HashMap<String, i32>>,
-    pub possible_hair_colors: Option<HashMap<String, i32>>,
-    pub possible_hair_length: Option<HashMap<String, i32>>,
-    pub possible_hair_type: Option<HashMap<String, i32>>,
+    pub possible_eye_colors: Option<WeightMap<String>>,
+    pub possible_hair_colors: Option<WeightMap<String>>,
+    pub possible_hair_length: Option<WeightMap<String>>,
+    pub possible_hair_type: Option<WeightMap<String>>,
     pub mutation_probabilities: HashMap<Mutation, f64>,
-    pub specimen_surnames: Option<HashMap<String, i32>>,
+    pub specimen_surnames: Option<WeightMap<String>>,
     pub age_ranges: AgeRanges,
-    pub age_range_distribution: HashMap<AgeRange, i32>,
+    pub age_range_distribution: WeightMap<AgeRange>,
     pub prd_reference: Option<String>,
     #[serde(default)]
     pub is_asexual: bool,
@@ -44,14 +45,14 @@ impl Ancestry {
         senses: Vec<Sense>,
         size: Size,
         speed: u16,
-        possible_eye_colors: Option<HashMap<String, i32>>,
-        possible_hair_colors: Option<HashMap<String, i32>>,
-        possible_hair_length: Option<HashMap<String, i32>>,
-        possible_hair_type: Option<HashMap<String, i32>>,
+        possible_eye_colors: Option<WeightMap<String>>,
+        possible_hair_colors: Option<WeightMap<String>>,
+        possible_hair_length: Option<WeightMap<String>>,
+        possible_hair_type: Option<WeightMap<String>>,
         mutation_probabilities: HashMap<Mutation, f64>,
-        specimen_surnames: Option<HashMap<String, i32>>,
+        specimen_surnames: Option<WeightMap<String>>,
         age_ranges: AgeRanges,
-        age_range_distribution: HashMap<AgeRange, i32>,
+        age_range_distribution: WeightMap<AgeRange>,
         prd_reference: Option<String>,
         is_asexual: bool,
         hair_substance: String,

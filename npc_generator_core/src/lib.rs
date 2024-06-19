@@ -154,7 +154,7 @@ pub struct AgeRanges {
 }
 
 impl AgeRanges {
-    pub fn get(&self, range: AgeRange) -> Range<u64> {
+    pub fn get(&self, range: &AgeRange) -> Range<u64> {
         match range {
             AgeRange::Infant => 0..self.child,
             AgeRange::Child => self.child..self.youth,
@@ -268,7 +268,7 @@ pub struct NpcOptions {
     pub ancestry: Option<Ancestry>,
     pub heritage: Option<Option<Heritage>>,
     pub background: Option<Background>,
-    pub ancestry_weights: Option<AncestryWeights>,
+    pub ancestry_weights: Option<WeightMap<String>>,
 }
 
 #[macro_export]

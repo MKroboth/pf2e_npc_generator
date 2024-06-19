@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{NamedElement, Trait, ValidAncestries};
+use crate::{NamedElement, Trait, ValidAncestries, WeightMap};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Heritage {
@@ -15,8 +15,8 @@ pub struct Heritage {
     pub prd_reference: Option<String>,
     pub valid_ancestries: ValidAncestries,
 
-    pub additional_eye_colors: HashMap<String, i32>,
-    pub additional_hair_colors: HashMap<String, i32>,
+    pub additional_eye_colors: WeightMap<String>,
+    pub additional_hair_colors: WeightMap<String>,
     pub force_heterochromia: Option<String>,
 }
 
@@ -26,8 +26,8 @@ impl Heritage {
         name: impl AsRef<str>,
         lineage: Option<&str>,
         valid_ancestries: ValidAncestries,
-        additional_eye_colors: HashMap<String, i32>,
-        additional_hair_colors: HashMap<String, i32>,
+        additional_eye_colors: WeightMap<String>,
+        additional_hair_colors: WeightMap<String>,
         force_heterochromia: Option<&str>,
         prd_reference: Option<&str>,
     ) -> Self {

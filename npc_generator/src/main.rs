@@ -119,22 +119,22 @@ fn load_generator_data() -> Result<Arc<GeneratorData>, Box<dyn Error>> {
     let mut data: PathBuf = std::env::current_dir()?;
     data.push("data");
 
-    let ancestries: HashMap<Ancestry, i32> = {
+    let ancestries: WeightMap<Ancestry> = {
         let mut path = data.clone();
         path.push("ancestries.ron");
         ron::from_str(&fs::read_to_string(path)?)?
     };
-    let heritages: HashMap<Heritage, i32> = {
+    let heritages: WeightMap<Heritage> = {
         let mut path = data.clone();
         path.push("heritages.ron");
         ron::from_str(&fs::read_to_string(path)?)?
     };
-    let backgrounds: HashMap<Background, i32> = {
+    let backgrounds: WeightMap<Background> = {
         let mut path = data.clone();
         path.push("backgrounds.ron");
         ron::from_str(&fs::read_to_string(path)?)?
     };
-    let names: HashMap<Trait, HashMap<String, HashMap<String, i32>>> = {
+    let names: HashMap<Trait, HashMap<String, WeightMap<String>>> = {
         let mut path = data.clone();
         path.push("names.ron");
         ron::from_str(&fs::read_to_string(path)?)?
@@ -142,9 +142,10 @@ fn load_generator_data() -> Result<Arc<GeneratorData>, Box<dyn Error>> {
 
     Ok(Arc::new(npc_generator_core::generators::GeneratorData {
         ancestries,
-        special_heritages: heritages,
+        versitile_heritages: heritages,
         normal_heritage_weight: 0.8,
         backgrounds,
+        heritages: Default::default(),
         names,
     }))
 }

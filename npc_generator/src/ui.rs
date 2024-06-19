@@ -123,7 +123,7 @@ impl eframe::App for UserInterface {
                             Some(None),
                             "Normal Person",
                         );
-                        for heritage in &self.generator.data.special_heritages {
+                        for heritage in &self.generator.data.versitile_heritages {
                             ui.selectable_value(
                                 &mut self.data.npc_options.heritage,
                                 Some(Some(heritage.0.clone())),

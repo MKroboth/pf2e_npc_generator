@@ -52,11 +52,12 @@ pub struct Statblock {
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct GeneratorData {
-    pub ancestries: HashMap<Ancestry, i32>,
+    pub ancestries: WeightMap<Ancestry>,
     pub normal_heritage_weight: f64,
-    pub special_heritages: HashMap<Heritage, i32>,
-    pub backgrounds: HashMap<Background, i32>,
-    pub names: HashMap<Trait, HashMap<String, HashMap<String, i32>>>,
+    pub versitile_heritages: WeightMap<Heritage>,
+    pub heritages: HashMap<Trait, WeightMap<String>>,
+    pub backgrounds: WeightMap<Background>,
+    pub names: HashMap<Trait, HashMap<String, WeightMap<String>>>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Generator<R: rand::Rng> {
@@ -74,9 +75,9 @@ impl<R: rand::Rng> Generator<R> {
         })
     }
 
-    fn generate_age(&self, rng: &mut impl Rng, ancestry: &Ancestry) -> (AgeRange, u64) {
+    fn generate_age<'a>(&self, rng: &mut impl Rng, ancestry: &'a Ancestry) -> (&'a AgeRange, u64) {
         let age_range = {
-            let (values, distribution) = split_weights(&ancestry.age_range_distribution).unwrap();
+            let (values, distribution) = &ancestry.age_range_distribution.split_weights().unwrap();
             values[distribution.sample(rng)]
         };
 
@@ -87,7 +88,7 @@ impl<R: rand::Rng> Generator<R> {
     fn generate_ancestry(
         &self,
         rng: &mut impl Rng,
-        ancestry_weights: Option<&AncestryWeights>,
+        ancestry_weights: Option<&WeightMap<String>>,
     ) -> Ancestry {
         let ancestries: HashMap<&str, Ancestry> = HashMap::from_iter(
             self.data
@@ -96,16 +97,18 @@ impl<R: rand::Rng> Generator<R> {
                 .map(|elem| (elem.name.as_str(), elem.clone())),
         );
 
-        if let Some(_ancestry_weights) = ancestry_weights {
-            unimplemented!("Weighting ancestries are not implemented yet")
-        } else {
-            let ancestry = {
-                let (values, distribution) = split_weights(&self.data.ancestries).unwrap();
-                values[distribution.sample(rng)].clone()
+        let ancestry = {
+            let (values, distribution) = if let Some(ancestry_weights) = ancestry_weights {
+                self.data
+                    .ancestries
+                    .split_weights_with_modifications(|x| ancestry_weights.get(&x.name).copied())
+                    .unwrap()
+            } else {
+                self.data.ancestries.split_weights().unwrap()
             };
-
-            ancestry
-        }
+            values[distribution.sample(rng)].clone()
+        };
+        ancestry
     }
 
     pub fn generate(&mut self, options: &NpcOptions) -> Statblock {
@@ -167,7 +170,7 @@ impl<R: rand::Rng> Generator<R> {
         let pre_statblock = Statblock {
             traits: traits.clone(),
             age,
-            age_range,
+            age_range: *age_range,
             name: {
                 let mut names_rng =
                     rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
@@ -206,7 +209,7 @@ impl<R: rand::Rng> Generator<R> {
     pub fn generate_heritage(&self, rng: &mut impl Rng) -> Option<Heritage> {
         let heritage: HashMap<&str, Heritage> = HashMap::from_iter(
             self.data
-                .special_heritages
+                .versitile_heritages
                 .keys()
                 .into_iter()
                 .map(|elem| (elem.name(), elem.clone())),
@@ -218,7 +221,8 @@ impl<R: rand::Rng> Generator<R> {
             None
         } else {
             let heritage = {
-                let (values, distribution) = split_weights(&self.data.special_heritages).unwrap();
+                let (values, distribution) =
+                    &self.data.versitile_heritages.split_weights().unwrap();
                 values[distribution.sample(rng)].clone()
             };
 
@@ -295,7 +299,7 @@ impl<R: rand::Rng> Generator<R> {
         traits: &[Trait],
         name_rng: &mut impl Rng,
         ancestry: &Ancestry,
-        names: &HashMap<Trait, HashMap<String, HashMap<String, i32>>>,
+        names: &HashMap<Trait, HashMap<String, WeightMap<String>>>,
         sex: &str,
     ) -> String {
         let traits: Vec<Trait> = {
@@ -317,12 +321,12 @@ impl<R: rand::Rng> Generator<R> {
             ancestry.name
         ));
         let first_name = {
-            let (names, weights) = split_weights(names).unwrap();
+            let (names, weights) = names.split_weights().unwrap();
             names[name_rng.sample(weights)].clone()
         };
 
         let surname = if let Some(ref surnames) = ancestry.specimen_surnames {
-            let (surnames, weights) = split_weights(&surnames).unwrap();
+            let (surnames, weights) = surnames.split_weights().unwrap();
             surnames[name_rng.sample(weights)].clone()
         } else {
             return first_name;
@@ -415,41 +419,20 @@ fn generate_flavor_hairs(
         };
 
     let hair_color: String = {
-        let (values, distribution) = split_weights(&possible_hair_colors).unwrap();
-        (*values[distribution.sample(rng)]).into()
+        let (values, distribution) = possible_hair_colors.split_weights().unwrap();
+        (values[distribution.sample(rng)]).into()
     };
     let hair_type: String = {
-        let (values, distribution) = split_weights(&possible_hair_type).unwrap();
-        (*values[distribution.sample(rng)]).into()
+        let (values, distribution) = possible_hair_type.split_weights().unwrap();
+        (values[distribution.sample(rng)]).into()
     };
     let hair_length: String = {
-        let (values, distribution) = split_weights(&possible_hair_length).unwrap();
-        (*values[distribution.sample(rng)]).into()
+        let (values, distribution) = possible_hair_length.split_weights().unwrap();
+        (values[distribution.sample(rng)]).into()
     };
 
     let hair = &ancestry.hair_substance;
     format!("{hair_length}, {hair_type}, {hair_color} {hair}")
-}
-
-fn split_weights<Weight, Value>(
-    container: &HashMap<Value, Weight>,
-) -> Result<
-    (Vec<Value>, rand::distributions::WeightedIndex<Weight>),
-    rand::distributions::WeightedError,
->
-where
-    Weight: SampleUniform + PartialOrd + Default + Clone + for<'a> core::ops::AddAssign<&'a Weight>,
-    Value: Hash + Clone,
-{
-    let mut weights = Vec::new();
-    let mut values = Vec::new();
-
-    for (value, weight) in container {
-        values.push(value.clone());
-        weights.push(weight);
-    }
-
-    Ok((values, rand::distributions::WeightedIndex::new(weights)?))
 }
 
 fn generate_flavor_eyes(
@@ -457,7 +440,7 @@ fn generate_flavor_eyes(
     ancestry: &Ancestry,
     heritage: Option<&Heritage>,
 ) -> String {
-    let mut available_eye_colors: HashMap<String, i32> = HashMap::new();
+    let mut available_eye_colors: WeightMap<String> = WeightMap::new();
     if let Some(x) = &ancestry.possible_eye_colors {
         available_eye_colors.extend(x.clone());
     } else {
@@ -465,33 +448,34 @@ fn generate_flavor_eyes(
     };
 
     if let Some(heritage) = heritage {
-        available_eye_colors.extend(heritage.additional_eye_colors.clone());
+        let eye_colors = heritage.additional_eye_colors.clone();
+        available_eye_colors.extend(eye_colors);
     }
 
-    let (available_eye_colors, distribution) = split_weights(&available_eye_colors).unwrap();
+    let (available_eye_colors, distribution) = available_eye_colors.split_weights().unwrap();
 
-    let eye_color: String = (*available_eye_colors[distribution.sample(rng)]).into();
-    let heterochromia_color: String = (*available_eye_colors[distribution.sample(rng)]).into();
+    let eye_color: &str = available_eye_colors[distribution.sample(rng)];
+    let heterochromia_color: &str = available_eye_colors[distribution.sample(rng)];
     let force_heterochromia = if let Some(heritage) = heritage {
         heritage.force_heterochromia.clone()
     } else {
         None
     };
-    let (has_heterochromia, heterochromia_color): (bool, String) =
+    let (has_heterochromia, heterochromia_color): (bool, &str) =
         if let Some(color) = &force_heterochromia {
-            (true, color.to_string())
+            (true, color)
         } else {
             let dist = rand::distributions::Bernoulli::new(
                 ancestry.mutation_probabilities[&Mutation::Heterochromia],
             )
             .unwrap();
-            (dist.sample(rng), (heterochromia_color))
+            (dist.sample(rng), heterochromia_color)
         };
 
     if has_heterochromia {
-        let mut eye_color = eye_color;
+        let mut eye_color: &str = eye_color;
         while heterochromia_color == eye_color {
-            eye_color = (*available_eye_colors[distribution.sample(rng)]).into();
+            eye_color = available_eye_colors[distribution.sample(rng)];
         }
         let is_left_hetero = rng.sample(rand::distributions::Bernoulli::new(0.5).unwrap());
         let (left_eye, right_eye) = if is_left_hetero {
