@@ -263,10 +263,10 @@ impl Background {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct NpcOptions {
     pub ancestry: Option<Ancestry>,
-    pub heritage: Option<Heritage>,
+    pub heritage: Option<Option<Heritage>>,
     pub background: Option<Background>,
     pub ancestry_weights: Option<AncestryWeights>,
 }

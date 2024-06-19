@@ -4,6 +4,7 @@ use rand::distributions::Distribution;
 use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -12,6 +13,14 @@ use std::sync::Arc;
 pub struct NpcFlavor {
     pub description_line: String,
     pub hair_and_eyes_line: String,
+}
+
+impl Display for NpcFlavor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}", self.description_line)?;
+        writeln!(f, "")?;
+        writeln!(f, "{}", self.hair_and_eyes_line)
+    }
 }
 
 #[derive(Default, Debug)]
@@ -49,9 +58,10 @@ pub struct GeneratorData {
     pub backgrounds: HashMap<Background, i32>,
     pub names: HashMap<Trait, HashMap<String, HashMap<String, i32>>>,
 }
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Generator<R: rand::Rng> {
     random_number_generator: R,
-    data: Arc<GeneratorData>,
+    pub data: Arc<GeneratorData>,
 }
 impl<R: rand::Rng> Generator<R> {
     pub fn new(
@@ -77,7 +87,7 @@ impl<R: rand::Rng> Generator<R> {
     fn generate_ancestry(
         &self,
         rng: &mut impl Rng,
-        ancestry_weights: Option<AncestryWeights>,
+        ancestry_weights: Option<&AncestryWeights>,
     ) -> Ancestry {
         let ancestries: HashMap<&str, Ancestry> = HashMap::from_iter(
             self.data
@@ -98,14 +108,19 @@ impl<R: rand::Rng> Generator<R> {
         }
     }
 
-    pub fn generate(&mut self, options: NpcOptions) -> Statblock {
+    pub fn generate(&mut self, options: &NpcOptions) -> Statblock {
+        let options = options.clone();
+        let ancestry_weights = options.ancestry_weights.as_ref();
+
         let ancestry: Ancestry = {
             let mut ancestry_rng =
                 rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
 
-            options.ancestry.unwrap_or_else(|| {
-                self.generate_ancestry(&mut ancestry_rng, options.ancestry_weights)
-            })
+            options
+                .ancestry
+                .clone()
+                .unwrap_or_else(|| self.generate_ancestry(&mut ancestry_rng, ancestry_weights))
+                .clone()
         };
 
         let heritage: Option<Heritage> = {
@@ -114,7 +129,8 @@ impl<R: rand::Rng> Generator<R> {
 
             options
                 .heritage
-                .or_else(|| self.generate_heritage(&mut heritage_rng))
+                .clone()
+                .unwrap_or_else(|| self.generate_heritage(&mut heritage_rng))
         };
 
         let background = {
@@ -123,6 +139,7 @@ impl<R: rand::Rng> Generator<R> {
 
             options
                 .background
+                .clone()
                 .unwrap_or_else(|| self.generate_background(&mut background_rng))
         };
 
