@@ -1,54 +1,10 @@
 use super::*;
-use rand::distributions::uniform::SampleUniform;
 use rand::distributions::Distribution;
 use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
 use std::collections::HashMap;
-use std::fmt::Display;
-use std::hash::Hash;
 use std::str::FromStr;
 use std::sync::Arc;
-
-#[derive(Default, Debug)]
-pub struct NpcFlavor {
-    pub description_line: String,
-    pub hair_and_eyes_line: String,
-}
-
-impl Display for NpcFlavor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.description_line)?;
-        writeln!(f, "")?;
-        writeln!(f, "{}", self.hair_and_eyes_line)
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct Statblock {
-    pub name: String,
-    pub class: String,
-    pub level: i8,
-    pub age: u64,
-    pub age_range: AgeRange,
-    pub sex: String,
-    pub traits: Vec<Trait>,
-    pub perception: i16,
-    pub skills: Vec<(Skill, i16)>,
-    pub abilities: Vec<(Ability, i16)>,
-    pub items: Vec<String>,
-    //--
-    pub armor_class: i16,
-    pub fortitude_save: i16,
-    pub reflex_save: i16,
-    pub will_save: i16,
-    pub hit_points: i32,
-    //--
-    pub land_speed: u16,
-    // TODO add other speeds
-    pub flavor: NpcFlavor,
-    pub ancestry: Option<Ancestry>,
-    pub heritage: Option<Heritage>,
-}
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct GeneratorData {
@@ -90,13 +46,6 @@ impl<R: rand::Rng> Generator<R> {
         rng: &mut impl Rng,
         ancestry_weights: Option<&WeightMap<String>>,
     ) -> Ancestry {
-        let ancestries: HashMap<&str, Ancestry> = HashMap::from_iter(
-            self.data
-                .ancestries
-                .keys()
-                .map(|elem| (elem.name.as_str(), elem.clone())),
-        );
-
         let ancestry = {
             let (values, distribution) = if let Some(ancestry_weights) = ancestry_weights {
                 self.data
@@ -112,7 +61,6 @@ impl<R: rand::Rng> Generator<R> {
     }
 
     pub fn generate(&mut self, options: &NpcOptions) -> Statblock {
-        let options = options.clone();
         let ancestry_weights = options.ancestry_weights.as_ref();
 
         let ancestry: Ancestry = {
@@ -207,17 +155,10 @@ impl<R: rand::Rng> Generator<R> {
     }
 
     pub fn generate_heritage(&self, rng: &mut impl Rng) -> Option<Heritage> {
-        let heritage: HashMap<&str, Heritage> = HashMap::from_iter(
-            self.data
-                .versitile_heritages
-                .keys()
-                .into_iter()
-                .map(|elem| (elem.name(), elem.clone())),
-        );
-
         if rng
             .sample(rand::distributions::Bernoulli::new(self.data.normal_heritage_weight).unwrap())
         {
+            // TODO choose normal heritage
             None
         } else {
             let heritage = {

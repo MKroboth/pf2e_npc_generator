@@ -13,8 +13,9 @@ mod heritage;
 pub use heritage::*;
 mod ancestry;
 pub use ancestry::*;
-
+mod statblock;
 pub use newtypes::*;
+pub use statblock::*;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum AbilityBoost {

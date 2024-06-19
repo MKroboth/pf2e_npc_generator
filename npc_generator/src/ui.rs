@@ -74,8 +74,6 @@ impl eframe::App for UserInterface {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("Character Generator");
 
-            ui.horizontal(|ui| {});
-
             if ui.button("Generate").clicked() {
                 let result = self.generator.generate(&self.data.npc_options);
                 self.data.generated_text = result.flavor.to_string();
@@ -164,18 +162,4 @@ impl eframe::App for UserInterface {
             ui.text_edit_multiline(&mut self.data.generated_text);
         });
     }
-}
-
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
-        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-        ui.label(" and ");
-        ui.hyperlink_to(
-            "eframe",
-            "https://github.com/emilk/egui/tree/master/crates/eframe",
-        );
-        ui.label(".");
-    });
 }

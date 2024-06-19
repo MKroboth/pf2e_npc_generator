@@ -43,7 +43,7 @@ impl<K: Hash + Eq> WeightMap<K> {
     }
     #[inline]
     pub fn into_values(self) -> IntoValues<K, Weight> {
-        self.into_values()
+        self.0.into_values()
     }
     pub fn iter(&self) -> Iter<'_, K, Weight> {
         self.0.iter()

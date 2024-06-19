@@ -15,6 +15,7 @@ in
     with pkgs;
     mkShell {
       buildInputs = [
+        bacon
         cargo
         rustc
         rust-analyzer
