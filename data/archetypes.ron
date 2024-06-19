@@ -1,0 +1,88 @@
+#![enable(unwrap_newtypes)]
+[
+    Archetype(
+        level: -1,
+        name: "Commoner",
+        perception: 3,
+        languages: [Language(name: "Common", traits: [])],
+        skills: {
+            Athletics: 5,
+            Society: 2,
+            Lore("@"): 6
+        },
+        attributes: AttributeStats(
+            strength: 3,
+            dexterity: 1,
+            constitution: 2,
+            intelligence: 0,
+            wisdom: 1,
+            charisma: 0
+        ),
+        items: ["sickle"],
+        armor_class: 13,
+        fortitude_save: 6,
+        reflex_save: 3,
+        will_save: 3,
+        hp: 10,
+        speed: 25,
+        actions: [],
+    ),
+    Archetype(
+        level: -1,
+        name: "Apothecary",
+        perception: 5,
+        languages: [Language(name: "Common", traits: [])],
+        skills: {
+            Crafting: 5,
+            Medicine: 10,
+            Nature: 8,
+            Lore("@"): 6
+        },
+        attributes: AttributeStats(
+            strength: 0,
+            dexterity: 1,
+            constitution: 1,
+            intelligence: 3,
+            wisdom: 3,
+            charisma: 1
+        ),
+        items: [],
+        armor_class: 14,
+        fortitude_save: 8,
+        reflex_save: 3,
+        will_save: 5,
+        hp: 9,
+        speed: 25,
+        actions: [],
+    ),
+    Archetype(
+        level: -1,
+        name: "Physician",
+        perception: 8,
+        languages: [Language(name: "Common", traits: [])],
+        skills: {
+            Diplomacy: 8,
+            Medicine: 12,
+            Society: 10,
+            Lore("@"): 6
+        },
+        attributes: AttributeStats(
+            strength: -1,
+            dexterity: 1,
+            constitution: 1,
+            intelligence: 4,
+            wisdom: 2,
+            charisma: 2
+        ),
+        items: [ "minor elixirs of life (2)", "healers tools", "medical textbook"],
+        armor_class: 13,
+        fortitude_save: 9,
+        reflex_save: 3,
+        will_save: 8,
+        hp: 9,
+        speed: 25,
+        actions: [],
+    ),
+
+
+]

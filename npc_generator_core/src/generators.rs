@@ -14,6 +14,7 @@ pub struct GeneratorData {
     pub heritages: HashMap<Trait, WeightMap<String>>,
     pub backgrounds: WeightMap<Background>,
     pub names: HashMap<Trait, HashMap<String, WeightMap<String>>>,
+    pub archetypes: Vec<Archetype>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Generator<R: rand::Rng> {
@@ -112,7 +113,7 @@ impl<R: rand::Rng> Generator<R> {
 
         traits.extend(ancestry.traits().into_iter().map(|x| x.clone()));
         traits.extend(heritage.iter().flat_map(|x| Vec::from(x.traits())));
-
+        traits.insert(Trait(ancestry.size.to_string()));
         let traits: Vec<Trait> = traits.into_iter().collect::<Vec<_>>();
 
         let pre_statblock = Statblock {
@@ -126,6 +127,29 @@ impl<R: rand::Rng> Generator<R> {
             },
             sex,
             ..Default::default()
+        };
+
+        let pre_statblock = if let Some(ref archetype) = options.archetype {
+            Statblock {
+                perception: archetype.perception,
+                land_speed: archetype.speed,
+                skills: archetype
+                    .skills
+                    .iter()
+                    .map(|(x, y)| (x.clone(), y.clone()))
+                    .collect::<Vec<_>>(),
+                attributes: archetype.attributes.clone(),
+                items: archetype.items.clone(),
+                armor_class: archetype.armor_class,
+                fortitude_save: archetype.fortitude_save,
+                reflex_save: archetype.reflex_save,
+                will_save: archetype.will_save,
+                hit_points: archetype.hp,
+                level: archetype.level,
+                ..pre_statblock
+            }
+        } else {
+            Statblock { ..pre_statblock }
         };
         let mut flavor_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
 
@@ -227,6 +251,7 @@ impl<R: rand::Rng> Generator<R> {
                 background.name,
                 None,
             ),
+            lineage_line: generate_lineage_line(heritage),
             hair_and_eyes_line: generate_flavor_hair_and_eyes_line(rng, &ancestry, heritage),
         }
     }
@@ -275,6 +300,17 @@ impl<R: rand::Rng> Generator<R> {
         };
 
         format!("{first_name} {surname}")
+    }
+}
+
+fn generate_lineage_line(heritage: Option<&Heritage>) -> Option<String> {
+    if let Some(heritage) = heritage {
+        heritage
+            .lineage
+            .as_ref()
+            .map(|lineage| format!("They are of the {lineage} lineage"))
+    } else {
+        None
     }
 }
 

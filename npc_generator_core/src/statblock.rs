@@ -1,21 +1,28 @@
 use std::fmt::Display;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{AgeRange, Ancestry, Heritage, Skill, Trait};
 
 #[derive(Default, Debug)]
 pub struct NpcFlavor {
     pub description_line: String,
     pub hair_and_eyes_line: String,
+    pub lineage_line: Option<String>,
 }
 
 impl Display for NpcFlavor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{}", self.description_line)?;
-        writeln!(f, "{}", self.hair_and_eyes_line)
+        writeln!(f, "{}", self.hair_and_eyes_line)?;
+        if let Some(ref lineage_line) = self.lineage_line {
+            writeln!(f, "{}", lineage_line)?;
+        }
+        Ok(())
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct AttributeStats {
     pub strength: i8,
     pub dexterity: i8,
@@ -98,7 +105,7 @@ impl PF2eStats {
             .collect::<Vec<_>>();
         skills.sort_by_key(|x| x.0.to_string());
         let mut skills_string = String::new();
-        for skill in skills.iter().map(|x| format!("{} {},", x.0, x.1)) {
+        for skill in skills.iter().map(|x| format!("{} {:+},", x.0, x.1)) {
             skills_string.push_str(&skill);
         }
         let _ = skills_string.pop();
@@ -114,7 +121,7 @@ impl PF2eStats {
             wisdom,
             charisma,
         } = self.0.attributes;
-        format!("**Str** {strength}, **Dex** {dexterity}, **Con** {constitution}, **Int** {intelligence}, **Wis** {wisdom}, **Cha** {charisma}")
+        format!("**Str** {strength:+}, **Dex** {dexterity:+}, **Con** {constitution:+}, **Int** {intelligence:+}, **Wis** {wisdom:+}, **Cha** {charisma:+}")
     }
 
     fn ac_and_saves(&self) -> String {

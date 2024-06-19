@@ -1,7 +1,7 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fmt::Display,
     hash::{Hash, Hasher},
     ops::Range,
@@ -115,6 +115,23 @@ pub enum Size {
     Garganutan,
 }
 
+impl Display for Size {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Tiny => "Tiny",
+                Self::Small => "Small",
+                Self::Medium => "Medium",
+                Self::Large => "Large",
+                Self::Huge => "Huge",
+                Self::Garganutan => "Gargantuan",
+            }
+        )
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
 pub struct DiceFormula(pub i8, pub Die);
 impl DiceFormula {
@@ -202,7 +219,7 @@ pub enum ValidAncestries {
     AllOf(Vec<String>),
 }
 
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Serialize, Deserialize, Hash)]
 pub enum Skill {
     Acrobatics,
     Arcana,
@@ -299,12 +316,39 @@ impl Background {
     }
 }
 
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+pub struct Archetype {
+    pub name: String,
+    pub prd_reference: Option<String>,
+    pub perception: i16,
+    pub languages: Vec<Language>,
+    pub skills: HashMap<Skill, i16>,
+    pub attributes: AttributeStats,
+    pub items: Vec<String>,
+    pub armor_class: i16,
+    pub fortitude_save: i16,
+    pub reflex_save: i16,
+    pub will_save: i16,
+    pub hp: i32,
+    pub speed: u16,
+    pub actions: Vec<String>,
+    pub level: i8,
+}
+
+impl PartialEq for Archetype {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+impl Eq for Archetype {}
+
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct NpcOptions {
     pub ancestry: Option<Ancestry>,
     pub heritage: Option<Option<Heritage>>,
     pub background: Option<Background>,
     pub ancestry_weights: Option<WeightMap<String>>,
+    pub archetype: Option<Archetype>,
 }
 
 #[macro_export]

@@ -1,23 +1,25 @@
 #![enable(unwrap_newtypes)]
 {
     Heritage(
-        traits: [],
+        traits: [ "Elf", "Aiuvarin" ],
         name: "Aiuvarin",
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
+        prd_reference: Some("https://2e.aonprd.com/Ancestries.aspx?ID=69"),
     ): 15,
     Heritage(
-        traits: [],
+        traits: [ "Orc", "Dromaar" ],
         name: "Dromaar",
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
+        prd_reference: Some("https://2e.aonprd.com/Ancestries.aspx?ID=70"),
     ): 10,
     Heritage(
-        traits: [],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Brine May"),
         valid_ancestries: Any,
@@ -28,7 +30,7 @@
     ): 2,
 
     Heritage(
-        traits: [],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Callow May"),
         valid_ancestries: Any,
@@ -40,7 +42,7 @@
 
     ): 8,
     Heritage(
-        traits: [],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Dream May"),
         valid_ancestries: Any,
@@ -50,7 +52,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4532"),
     ): 3,
     Heritage(
-        traits: [],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Slag May"),
         valid_ancestries: Any,
@@ -60,7 +62,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4533"),
     ): 5,
    Heritage(
-        traits: [],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Moon May"),
         valid_ancestries: Any,
@@ -70,7 +72,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=2331"),
     ): 2,
    Heritage(
-        traits: [],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Snow May"),
         valid_ancestries: Any,
@@ -80,7 +82,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=2332"),
     ): 2,
    Heritage(
-        traits: [],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Veil May"),
         valid_ancestries: Any,
@@ -90,7 +92,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=2333"),
     ): 5,
    Heritage(
-        traits: [],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Virga May"),
         valid_ancestries: Any,
@@ -101,7 +103,7 @@
     ): 5,
 
     Heritage(
-        traits: [],
+        traits: [ "Nephilim"],
         name: "Nephilim",
         lineage: Some("Angelkin"),
         valid_ancestries: Any,
@@ -111,7 +113,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4542"),
     ): 1,
     Heritage(
-        traits: [],
+        traits: ["Nephilim"],
         name: "Nephilim",
         lineage: Some("Grimspawn"),
         valid_ancestries: Any,
@@ -121,7 +123,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4543"),
     ): 1,
     Heritage(
-        traits: [],
+        traits: ["Nephilim"],
         name: "Nephilim",
         lineage: Some("Hellspawn"),
         valid_ancestries: Any,
@@ -131,7 +133,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4544"),
     ): 1,
     Heritage(
-        traits: [],
+        traits: ["Nephilim"],
         name: "Nephilim",
         lineage: Some("Lawbringer"),
         valid_ancestries: Any,
@@ -141,7 +143,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4545"),
     ): 1,
     Heritage(
-        traits: [],
+        traits: ["Nephilim"],
         name: "Nephilim",
         lineage: Some("Musetouched"),
         valid_ancestries: Any,
@@ -151,7 +153,7 @@
         prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4546"),
     ): 1,
     Heritage(
-        traits: [],
+        traits: ["Nephilim"],
         name: "Nephilim",
         lineage: Some("Pitborn"),
         valid_ancestries: Any,

@@ -121,6 +121,30 @@ impl eframe::App for UserInterface {
                             GeneratorFormat::PF2EStats.to_string(),
                         );
                     });
+                egui::ComboBox::from_label("Archetype")
+                    .selected_text(format!(
+                        "{}",
+                        match self.data.npc_options.archetype {
+                            Some(ref x) => x.name.as_str(),
+                            None => "No archetype",
+                        }
+                    ))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.data.npc_options.archetype,
+                            None,
+                            "No archetype",
+                        );
+
+                        for archetype in &self.generator.data.archetypes {
+                            let name = &archetype.name;
+                            ui.selectable_value(
+                                &mut self.data.npc_options.archetype,
+                                Some(archetype.clone()),
+                                name,
+                            );
+                        }
+                    });
             });
             ui.separator();
             ui.vertical(|ui| {
