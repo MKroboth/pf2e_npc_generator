@@ -2,6 +2,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
+    fmt::Display,
     hash::{Hash, Hasher},
     ops::Range,
 };
@@ -52,6 +53,12 @@ impl Default for AbilityModifications {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct Trait(String);
+
+impl Display for Trait {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl Trait {
     pub fn new(value: impl AsRef<str>) -> Self {
@@ -214,6 +221,34 @@ pub enum Skill {
     Stealth,
     Survival,
     Thievery,
+}
+
+impl Display for Skill {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Skill::Acrobatics => "Acrobatics".to_string(),
+                Skill::Arcana => "Arcana".to_string(),
+                Skill::Athletics => "Athletics".to_string(),
+                Skill::Crafting => "Crafting".to_string(),
+                Skill::Deception => "Deception".to_string(),
+                Skill::Diplomacy => "Diplomacy".to_string(),
+                Skill::Intimidation => "Intimidation".to_string(),
+                Skill::Lore(x) => format!("{} Lore", x).to_string(),
+                Skill::Medicine => "Medicine".to_string(),
+                Skill::Nature => "Nature".to_string(),
+                Skill::Occultism => "Occultism".to_string(),
+                Skill::Performance => "Performance".to_string(),
+                Skill::Religion => "Religion".to_string(),
+                Skill::Society => "Society".to_string(),
+                Skill::Stealth => "Stealth".to_string(),
+                Skill::Survival => "Survival".to_string(),
+                Skill::Thievery => "Thievery".to_string(),
+            }
+        )
+    }
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]

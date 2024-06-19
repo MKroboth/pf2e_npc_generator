@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Display, sync::Arc};
 
 use npc_generator_core::{
     generators::{Generator, GeneratorData},
@@ -12,9 +12,34 @@ pub struct UserInterface {
     data: UIData,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+enum GeneratorFormat {
+    Flavor,
+    PF2EStats,
+}
+
+impl Display for GeneratorFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                GeneratorFormat::Flavor => "Flavor",
+                GeneratorFormat::PF2EStats => "pf2e-stats",
+            }
+        )
+    }
+}
+
+impl Default for GeneratorFormat {
+    fn default() -> Self {
+        Self::Flavor
+    }
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct UIData {
-    label: String,
+    generated_text_format: GeneratorFormat,
     generated_text: String,
     npc_options: NpcOptions,
 }
@@ -74,10 +99,29 @@ impl eframe::App for UserInterface {
             // The central panel the region left after adding TopPanel's and SidePanel's
             ui.heading("Character Generator");
 
-            if ui.button("Generate").clicked() {
-                let result = self.generator.generate(&self.data.npc_options);
-                self.data.generated_text = result.flavor.to_string();
-            }
+            ui.horizontal(|ui| {
+                if ui.button("Generate").clicked() {
+                    let result = self.generator.generate(&self.data.npc_options);
+                    self.data.generated_text = match self.data.generated_text_format {
+                        GeneratorFormat::Flavor => result.flavor.to_string(),
+                        GeneratorFormat::PF2EStats => result.into_pf2e_stats().to_string(),
+                    };
+                }
+                egui::ComboBox::from_label("Generator Mode")
+                    .selected_text(format!("{}", &self.data.generated_text_format))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.data.generated_text_format,
+                            GeneratorFormat::Flavor,
+                            GeneratorFormat::Flavor.to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.data.generated_text_format,
+                            GeneratorFormat::PF2EStats,
+                            GeneratorFormat::PF2EStats.to_string(),
+                        );
+                    });
+            });
             ui.separator();
             ui.vertical(|ui| {
                 egui::ComboBox::from_label("Ancestry")
@@ -159,7 +203,11 @@ impl eframe::App for UserInterface {
                     });
             });
 
-            ui.text_edit_multiline(&mut self.data.generated_text);
+            ui.separator();
+            ui.add_sized(
+                egui::vec2(ui.available_width(), ui.available_height()),
+                egui::TextEdit::multiline(&mut self.data.generated_text.as_str()),
+            );
         });
     }
 }

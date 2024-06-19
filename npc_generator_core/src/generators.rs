@@ -135,7 +135,7 @@ impl<R: rand::Rng> Generator<R> {
             flavor: self.generate_flavor(
                 &mut flavor_rng,
                 &pre_statblock.skills,
-                &pre_statblock.abilities,
+                &pre_statblock.attributes,
                 &pre_statblock.name,
                 None, // class not yet supported
                 pre_statblock.level,
@@ -147,9 +147,10 @@ impl<R: rand::Rng> Generator<R> {
                 pre_statblock.will_save,
                 ancestry,
                 heritage.as_ref(),
-                background,
+                background.clone(),
                 &pre_statblock.sex,
             ),
+            class: background.name,
             ..pre_statblock
         }
     }
@@ -200,7 +201,7 @@ impl<R: rand::Rng> Generator<R> {
         &self,
         rng: &mut impl Rng,
         _skills: &[(Skill, i16)],
-        _abilities: &[(Ability, i16)],
+        _attributes: &AttributeStats,
         name: impl AsRef<str>,
         _class: Option<&str>,
         _level: i8,
