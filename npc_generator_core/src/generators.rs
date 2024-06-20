@@ -99,15 +99,20 @@ impl<R: rand::Rng> Generator<R> {
                 .unwrap_or_else(|| self.generate_background(&mut background_rng))
         };
 
-        let sex = {
-            if ancestry.is_asexual {
-                String::new()
-            } else {
-                let mut sex_rng =
-                    rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
-                self.generate_sex(&mut sex_rng, &ancestry)
-            }
-        };
+        let sex = options
+            .sex
+            .as_ref()
+            .map(|x| x.to_string())
+            .unwrap_or_else(|| {
+                if ancestry.is_asexual {
+                    String::new()
+                } else {
+                    let mut sex_rng =
+                        rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+                    self.generate_sex(&mut sex_rng, &ancestry)
+                }
+            })
+            .to_string();
         let (age_range, age) = {
             let mut age_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
             self.generate_age(&mut age_rng, &ancestry, options.age_range.as_ref())
@@ -247,7 +252,7 @@ impl<R: rand::Rng> Generator<R> {
         &self,
         rng: &mut impl Rng,
         skills: &[(Skill, i16)],
-        _attributes: &AttributeStats,
+        _attributes: &AbilityStats,
         name: impl AsRef<str>,
         _class: Option<&str>,
         _level: i8,
@@ -357,7 +362,7 @@ fn generate_stats(
     pre_statblock: Statblock,
 ) -> Statblock {
     let level = pre_statblock.level;
-    let mut attributes = AttributeStats::default();
+    let mut attributes = AbilityStats::default();
 
     let mut choosen_this_round = HashSet::new();
     for amod in ancestry.ability_modifications.0.iter() {

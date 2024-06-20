@@ -1,134 +1,116 @@
 #![enable(unwrap_newtypes)]
 {
     Heritage(
-        traits: ["Elf", "Aiuvarin"],
+        traits: [ "Elf", "Aiuvarin" ],
         name: "Aiuvarin",
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
-        prd_reference: Some(
-            "https://2e.aonprd.com/Ancestries.aspx?ID=69",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Ancestries.aspx?ID=69"),
     ): 15,
     Heritage(
-        traits: ["Orc", "Dromaar"],
+        traits: [ "Orc", "Dromaar" ],
         name: "Dromaar",
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
-        prd_reference: Some(
-            "https://2e.aonprd.com/Ancestries.aspx?ID=70",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Ancestries.aspx?ID=70"),
     ): 10,
     Heritage(
-        traits: ["Changeling"],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Brine May"),
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: Some("Blue"),
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4530",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4530"),
     ): 2,
+
     Heritage(
-        traits: ["Changeling"],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Callow May"),
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: Some("Green"),
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4531",
-        ),
+
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4531"),
+
     ): 8,
     Heritage(
-        traits: ["Changeling"],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Dream May"),
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: Some("Violet"),
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4532",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4532"),
     ): 3,
     Heritage(
-        traits: ["Changeling"],
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Slag May"),
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: Some("Gray"),
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4533",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4533"),
     ): 5,
-    Heritage(
-        traits: ["Changeling"],
+   Heritage(
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Moon May"),
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: Some("Scarlet"),
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=2331",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=2331"),
     ): 2,
-    Heritage(
-        traits: ["Changeling"],
+   Heritage(
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Snow May"),
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: Some("Blue-White"),
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=2332",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=2332"),
     ): 2,
-    Heritage(
-        traits: ["Changeling"],
+   Heritage(
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Veil May"),
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: Some("Blood-Red"),
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=2333",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=2333"),
     ): 5,
-    Heritage(
-        traits: ["Changeling"],
+   Heritage(
+        traits: [ "Changeling" ],
         name: "Changeling",
         lineage: Some("Virga May"),
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: Some("Crystal-Blue"),
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=2334",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=2334"),
     ): 5,
+
     Heritage(
-        traits: ["Nephilim"],
+        traits: [ "Nephilim"],
         name: "Nephilim",
         lineage: Some("Angelkin"),
         valid_ancestries: Any,
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4542",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4542"),
     ): 1,
     Heritage(
         traits: ["Nephilim"],
@@ -138,9 +120,7 @@
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4543",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4543"),
     ): 1,
     Heritage(
         traits: ["Nephilim"],
@@ -150,9 +130,7 @@
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4544",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4544"),
     ): 1,
     Heritage(
         traits: ["Nephilim"],
@@ -162,9 +140,7 @@
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4545",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4545"),
     ): 1,
     Heritage(
         traits: ["Nephilim"],
@@ -174,9 +150,7 @@
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4546",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4546"),
     ): 1,
     Heritage(
         traits: ["Nephilim"],
@@ -186,8 +160,6 @@
         additional_eye_colors: {},
         additional_hair_colors: {},
         force_heterochromia: None,
-        prd_reference: Some(
-            "https://2e.aonprd.com/Feats.aspx?ID=4547",
-        ),
+        prd_reference: Some("https://2e.aonprd.com/Feats.aspx?ID=4547"),
     ): 1,
 }

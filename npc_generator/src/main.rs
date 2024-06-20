@@ -1,4 +1,5 @@
 use egui;
+use native_dialog::FileDialog;
 use npc_generator_core::generators::GeneratorData;
 use npc_generator_core::{generators::Generator, *};
 
@@ -8,7 +9,8 @@ use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use std::collections::HashMap;
 use std::env::args;
-use std::io::Write;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::{
     error::Error,
     fs,
@@ -112,6 +114,7 @@ fn generate_distribution_preview() -> Result<(), Box<dyn Error>> {
 fn generate_character() -> Result<(), Box<dyn Error>> {
     use std::{fs::File, io::Read};
 
+    use log::error;
     use native_dialog::FileDialog;
 
     let native_options = eframe::NativeOptions {
@@ -121,60 +124,12 @@ fn generate_character() -> Result<(), Box<dyn Error>> {
         ..Default::default()
     };
 
-    let generator_data = if let Some(x) = load_generator_data().ok() {
-        x
-    } else {
-        let path = FileDialog::new()
-            .set_location("~/Desktop")
-            .add_filter("Generator Source Data Package", &["zip"])
-            .show_open_single_file()
-            .unwrap();
-
-        let file = File::open(path.unwrap())?;
-        let mut zip = zip::ZipArchive::new(file)?;
-
-        let ancestries: WeightMap<Ancestry> = {
-            let mut file = zip.by_name("ancestries.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
-        };
-        let heritages: WeightMap<Heritage> = {
-            let mut file = zip.by_name("heritages.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
-        };
-        let backgrounds: WeightMap<Background> = {
-            let mut file = zip.by_name("backgrounds.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
-        };
-        let names: HashMap<Trait, HashMap<String, WeightMap<String>>> = {
-            let mut file = zip.by_name("names.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
-        };
-
-        let mut archetypes: Vec<Archetype> = {
-            let mut file = zip.by_name("archetypes.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
-        };
-        archetypes.sort_by_key(|x| x.level);
-
-        Arc::new(npc_generator_core::generators::GeneratorData {
-            ancestries,
-            versitile_heritages: heritages,
-            normal_heritage_weight: 0.8,
-            backgrounds,
-            heritages: Default::default(),
-            names,
-            archetypes,
-        })
+    let generator_data = match load_generator_data() {
+        Ok(data) => data,
+        Err(err) => {
+            error!("{}", err);
+            load_generator_data_from_zip()?
+        }
     };
     eframe::run_native(
         "Character Generator",
@@ -182,6 +137,60 @@ fn generate_character() -> Result<(), Box<dyn Error>> {
         Box::new(move |cc| Box::new(ui::UserInterface::new(cc, generator_data.clone()))),
     )?;
     Ok(())
+}
+
+fn load_generator_data_from_zip() -> Result<Arc<GeneratorData>, Box<dyn Error>> {
+    let path = FileDialog::new()
+        .set_location("~/Desktop")
+        .add_filter("Generator Source Data Package", &["zip"])
+        .show_open_single_file()
+        .unwrap();
+
+    let file = File::open(path.unwrap())?;
+    let mut zip = zip::ZipArchive::new(file)?;
+
+    let ancestries: WeightMap<Ancestry> = {
+        let mut file = zip.by_name("ancestries.ron")?;
+        let mut data = String::new();
+        file.read_to_string(&mut data)?;
+        ron::from_str(&data)?
+    };
+    let heritages: WeightMap<Heritage> = {
+        let mut file = zip.by_name("heritages.ron")?;
+        let mut data = String::new();
+        file.read_to_string(&mut data)?;
+        ron::from_str(&data)?
+    };
+    let backgrounds: WeightMap<Background> = {
+        let mut file = zip.by_name("backgrounds.ron")?;
+        let mut data = String::new();
+        file.read_to_string(&mut data)?;
+        ron::from_str(&data)?
+    };
+    let names: HashMap<Trait, HashMap<String, WeightMap<String>>> = {
+        let mut file = zip.by_name("names.ron")?;
+        let mut data = String::new();
+        file.read_to_string(&mut data)?;
+        ron::from_str(&data)?
+    };
+
+    let mut archetypes: Vec<Archetype> = {
+        let mut file = zip.by_name("archetypes.ron")?;
+        let mut data = String::new();
+        file.read_to_string(&mut data)?;
+        ron::from_str(&data)?
+    };
+    archetypes.sort_by_key(|x| x.level);
+
+    Ok(Arc::new(npc_generator_core::generators::GeneratorData {
+        ancestries,
+        versitile_heritages: heritages,
+        normal_heritage_weight: 0.8,
+        backgrounds,
+        heritages: Default::default(),
+        names,
+        archetypes,
+    }))
 }
 
 fn load_generator_data() -> Result<Arc<GeneratorData>, Box<dyn Error>> {
@@ -226,8 +235,6 @@ fn load_generator_data() -> Result<Arc<GeneratorData>, Box<dyn Error>> {
         archetypes,
     }))
 }
-
-fn load_generator_data_pak() {}
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), Box<dyn Error>> {

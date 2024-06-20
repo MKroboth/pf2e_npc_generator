@@ -3,196 +3,196 @@
     Background(
         traits: [],
         name: "Acolyte",
-        trainings: []
+        trainings: [],
     ): 20,
     Background(
-    traits: [],
-    name: "Acrobat",
-    trainings: []): 20,
-
-Background(
-    traits: [],
-    name: "Animal Whisperer",
-    trainings: [],
+        traits: [],
+        name: "Acrobat",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Artisan",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Animal Whisperer",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Artist",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Artisan",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Bandit",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Artist",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Barkeep",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Bandit",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Barrister",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Barkeep",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Bounty Hunter",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Barrister",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Charlatan",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Bounty Hunter",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Cook",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Charlatan",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Criminal",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Cook",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Cultist",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Criminal",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Detective",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Cultist",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Emissary",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Detective",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Entertainer",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Emissary",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Farmhand",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Entertainer",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Field Medic",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Farmhand",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Fortune Teller",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Field Medic",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Gambler",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Fortune Teller",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Gladiator",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Gambler",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Guard",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Gladiator",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Herbalist",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Guard",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Hermit",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Herbalist",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Hunter",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Hermit",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Laborer",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Hunter",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Martial Disciple",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Laborer",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Merchant",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Martial Disciple",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Miner",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Merchant",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Noble",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Miner",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Nomad",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Noble",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Prisoner",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Nomad",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Sailor",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Prisoner",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Scholar",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Sailor",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Scout",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Scholar",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Street Urchin",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Scout",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Teacher",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Street Urchin",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Tinker",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Teacher",
+        trainings: [],
     ): 20,
-Background(
-    traits: [],
-    name: "Warrior",
-    trainings: [],
+    Background(
+        traits: [],
+        name: "Tinker",
+        trainings: [],
+    ): 20,
+    Background(
+        traits: [],
+        name: "Warrior",
+        trainings: [],
     ): 20,
 }

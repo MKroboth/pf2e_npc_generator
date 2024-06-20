@@ -149,17 +149,27 @@ impl eframe::App for UserInterface {
                             }
                         ))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.data.npc_options.ancestry,
-                                None,
-                                "Generate",
-                            );
-                            for ancestry in &self.generator.data.ancestries {
-                                ui.selectable_value(
+                            if ui
+                                .selectable_value(
                                     &mut self.data.npc_options.ancestry,
-                                    Some(ancestry.0.clone()),
-                                    ancestry.0.name.clone(),
-                                );
+                                    None,
+                                    "Generate",
+                                )
+                                .clicked
+                            {
+                                self.data.npc_options.sex = None;
+                            }
+                            for ancestry in &self.generator.data.ancestries {
+                                if ui
+                                    .selectable_value(
+                                        &mut self.data.npc_options.ancestry,
+                                        Some(ancestry.0.clone()),
+                                        ancestry.0.name.clone(),
+                                    )
+                                    .clicked
+                                {
+                                    self.data.npc_options.sex = None;
+                                }
                             }
                         });
                     egui::ComboBox::from_label("Heritage")
@@ -306,10 +316,49 @@ impl eframe::App for UserInterface {
                                 "Venerable",
                             );
                         });
-                });
-            });
+                    ui.add_enabled_ui(
+                        self.data.npc_options.ancestry.is_some()
+                            && !self.data.npc_options.ancestry.as_ref().unwrap().is_asexual,
+                        |ui| {
+                            egui::ComboBox::from_label("Sex")
+                                .selected_text(format!(
+                                    "{}",
+                                    match self
+                                        .data
+                                        .npc_options
+                                        .sex
+                                        .as_ref()
+                                        .map(|x| String::from(x.to_string()))
+                                    {
+                                        None => String::from("Generate"),
+                                        Some(x) => x,
+                                    }
+                                ))
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut self.data.npc_options.sex,
+                                        None,
+                                        "Generate",
+                                    );
 
-            ui.separator();
+                                    ui.selectable_value(
+                                        &mut self.data.npc_options.sex,
+                                        Some("male".to_string()),
+                                        "Male",
+                                    );
+
+                                    ui.selectable_value(
+                                        &mut self.data.npc_options.sex,
+                                        Some("female".to_string()),
+                                        "Female",
+                                    );
+                                });
+                        },
+                    );
+                });
+
+                ui.separator();
+            });
             if let Some(ref resulting_statblock) = self.resulting_statblock {
                 ui.add_sized(
                     egui::vec2(ui.available_width(), ui.available_height()),

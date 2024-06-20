@@ -17,16 +17,16 @@ pub struct NpcFlavor {
 
 impl Display for NpcFlavor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.description_line)?;
-        writeln!(f, "{}", self.hair_and_eyes_line)?;
-        writeln!(f, "{}", self.skin_line)?;
+        writeln!(f, "{}\n", self.description_line)?;
+        writeln!(f, "{}\n", self.hair_and_eyes_line)?;
+        writeln!(f, "{}\n", self.skin_line)?;
         if let Some(ref lineage_line) = self.lineage_line {
-            writeln!(f, "{}", lineage_line)?;
+            writeln!(f, "{}\n", lineage_line)?;
         }
 
-        writeln!(f, "{}", self.size_and_build_line)?;
-        writeln!(f, "{}", self.face_line)?;
-        writeln!(f, "{}", self.habit_line)?;
+        writeln!(f, "{}\n", self.size_and_build_line)?;
+        writeln!(f, "{}\n", self.face_line)?;
+        writeln!(f, "{}\n", self.habit_line)?;
         Ok(())
     }
 }
@@ -67,7 +67,7 @@ impl From<AbilityValue> for i8 {
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct AttributeStats {
+pub struct AbilityStats {
     pub strength: i8,
     pub dexterity: i8,
     pub constitution: i8,
@@ -76,7 +76,7 @@ pub struct AttributeStats {
     pub charisma: i8,
 }
 
-impl AttributeStats {
+impl AbilityStats {
     pub fn get_ability_mut(&mut self, ability: Ability) -> &mut i8 {
         match ability {
             Ability::Charisma => &mut self.charisma,
@@ -100,7 +100,7 @@ pub struct Statblock {
     pub traits: Vec<Trait>,
     pub perception: i16,
     pub skills: Vec<(Skill, i16)>,
-    pub attributes: AttributeStats,
+    pub attributes: AbilityStats,
     pub items: Vec<String>,
     //--
     pub armor_class: i16,
@@ -142,6 +142,7 @@ impl PF2eStats {
     }
     fn traits(&self) -> String {
         let mut trait_string = String::new();
+        trait_string.push_str("==Unique== ");
         let mut traits = self.0.traits.clone();
         traits.sort_by_key(|x| x.to_string());
         for trait_value in traits.iter().map(|x| format!("=={}==", x)) {
@@ -175,7 +176,7 @@ impl PF2eStats {
     }
 
     fn attributes(&self) -> String {
-        let AttributeStats {
+        let AbilityStats {
             strength,
             dexterity,
             constitution,

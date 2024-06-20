@@ -420,7 +420,7 @@ pub struct Archetype {
     pub perception: i16,
     pub languages: Vec<Language>,
     pub skills: HashMap<Skill, i16>,
-    pub attributes: AttributeStats,
+    pub attributes: AbilityStats,
     pub items: Vec<String>,
     pub armor_class: i16,
     pub fortitude_save: i16,
@@ -447,6 +447,7 @@ pub struct NpcOptions {
     pub ancestry_weights: Option<WeightMap<String>>,
     pub archetype: Option<Archetype>,
     pub age_range: Option<AgeRange>,
+    pub sex: Option<String>,
 }
 
 #[macro_export]
