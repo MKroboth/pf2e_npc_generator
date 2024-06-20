@@ -25,7 +25,7 @@ pub enum AbilityBoost {
     Free,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum Ability {
     Charisma,
     Constitution,
@@ -33,6 +33,20 @@ pub enum Ability {
     Intelligence,
     Strength,
     Wisdom,
+}
+
+impl Ability {
+    pub fn values() -> &'static [Ability] {
+        static VALUES: [Ability; 6] = [
+            Ability::Charisma,
+            Ability::Constitution,
+            Ability::Dexterity,
+            Ability::Intelligence,
+            Ability::Strength,
+            Ability::Wisdom,
+        ];
+        &VALUES
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -203,6 +217,24 @@ pub enum AgeRange {
     Venerable,
 }
 
+impl Display for AgeRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                AgeRange::Infant => "Infant",
+                AgeRange::Child => "Child",
+                AgeRange::Youth => "Youth",
+                AgeRange::Adult => "Adult",
+                AgeRange::MiddleAged => "MiddleAged",
+                AgeRange::Old => "Old",
+                AgeRange::Venerable => "Venerable",
+            }
+        )
+    }
+}
+
 impl Default for AgeRange {
     fn default() -> Self {
         AgeRange::Adult
@@ -269,11 +301,52 @@ impl Display for Skill {
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub enum Proficienty {
+pub enum Proficiency {
+    Untrained,
     Trained,
     Expert,
     Master,
     Legendary,
+}
+
+impl Proficiency {
+    pub fn bonus_for_level(&self, level: i8) -> i8 {
+        if let Self::Untrained = self {
+            return 0;
+        }
+
+        level as i8
+            + match self {
+                Proficiency::Untrained => unreachable!(),
+                Proficiency::Trained => 2,
+                Proficiency::Expert => 4,
+                Proficiency::Master => 6,
+                Proficiency::Legendary => 8,
+            }
+    }
+}
+
+impl Default for Proficiency {
+    fn default() -> Self {
+        Proficiency::Untrained
+    }
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Proficiencies {
+    pub perception: Proficiency,
+    pub fortitude_save: Proficiency,
+    pub reflex_save: Proficiency,
+    pub will_save: Proficiency,
+    pub unarmed: Proficiency,
+    pub simple_weapons: Proficiency,
+    pub martial_weapons: Proficiency,
+    pub advanced_weapons: Proficiency,
+    pub unarmored_defense: Proficiency,
+    pub light_armor: Proficiency,
+    pub medium_armor: Proficiency,
+    pub heavy_armor: Proficiency,
+    pub skills: HashMap<Skill, Proficiency>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -349,6 +422,7 @@ pub struct NpcOptions {
     pub background: Option<Background>,
     pub ancestry_weights: Option<WeightMap<String>>,
     pub archetype: Option<Archetype>,
+    pub age_range: Option<AgeRange>,
 }
 
 #[macro_export]

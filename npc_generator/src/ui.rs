@@ -2,7 +2,7 @@ use std::{fmt::Display, sync::Arc};
 
 use npc_generator_core::{
     generators::{Generator, GeneratorData},
-    NamedElement, NpcOptions,
+    NamedElement, NpcOptions, Statblock,
 };
 use rand::rngs::ThreadRng;
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct UserInterface {
     generator: Generator<ThreadRng>,
     data: UIData,
+    resulting_statblock: Option<Statblock>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
@@ -42,6 +43,7 @@ struct UIData {
     generated_text_format: GeneratorFormat,
     generated_text: String,
     npc_options: NpcOptions,
+    use_archetype: bool,
 }
 
 impl UserInterface {
@@ -50,17 +52,12 @@ impl UserInterface {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
-        // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
-        let data: UIData = if let Some(storage) = cc.storage {
-            eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
-        } else {
-            Default::default()
-        };
+        let data: UIData = Default::default();
 
         UserInterface {
             data,
             generator: Generator::new(ThreadRng::default(), generator_data).unwrap(),
+            resulting_statblock: Default::default(),
         }
     }
 }
@@ -100,12 +97,16 @@ impl eframe::App for UserInterface {
             ui.heading("Character Generator");
 
             ui.horizontal(|ui| {
-                if ui.button("Generate").clicked() {
-                    let result = self.generator.generate(&self.data.npc_options);
-                    self.data.generated_text = match self.data.generated_text_format {
-                        GeneratorFormat::Flavor => result.flavor.to_string(),
-                        GeneratorFormat::PF2EStats => result.into_pf2e_stats().to_string(),
-                    };
+                if ui
+                    .add_enabled(
+                        (self.data.use_archetype && self.data.npc_options.archetype.is_some())
+                            || !self.data.use_archetype,
+                        egui::Button::new("Generate"),
+                    )
+                    .clicked()
+                {
+                    self.resulting_statblock =
+                        Some(self.generator.generate(&self.data.npc_options));
                 }
                 egui::ComboBox::from_label("Generator Mode")
                     .selected_text(format!("{}", &self.data.generated_text_format))
@@ -121,117 +122,207 @@ impl eframe::App for UserInterface {
                             GeneratorFormat::PF2EStats.to_string(),
                         );
                     });
-                egui::ComboBox::from_label("Archetype")
-                    .selected_text(format!(
-                        "{}",
-                        match self.data.npc_options.archetype {
-                            Some(ref x) => x.name.as_str(),
-                            None => "No archetype",
-                        }
-                    ))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.data.npc_options.archetype,
-                            None,
-                            "No archetype",
-                        );
-
-                        for archetype in &self.generator.data.archetypes {
-                            let name = &archetype.name;
-                            ui.selectable_value(
-                                &mut self.data.npc_options.archetype,
-                                Some(archetype.clone()),
-                                name,
-                            );
-                        }
-                    });
+                if ui
+                    .checkbox(&mut self.data.use_archetype, "Use archetype")
+                    .changed
+                {
+                    if self.data.use_archetype {
+                        self.data.npc_options.background = None;
+                    } else {
+                        self.data.npc_options.archetype = None;
+                    }
+                }
             });
             ui.separator();
-            ui.vertical(|ui| {
-                egui::ComboBox::from_label("Ancestry")
-                    .selected_text(format!(
-                        "{}",
-                        match self
-                            .data
-                            .npc_options
-                            .ancestry
-                            .as_ref()
-                            .map(|x| String::from(&x.name))
-                        {
-                            None => String::from("Generate"),
-                            Some(x) => x,
-                        }
-                    ))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.data.npc_options.ancestry, None, "Generate");
-                        for ancestry in &self.generator.data.ancestries {
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    egui::ComboBox::from_label("Ancestry")
+                        .selected_text(format!(
+                            "{}",
+                            match self
+                                .data
+                                .npc_options
+                                .ancestry
+                                .as_ref()
+                                .map(|x| String::from(&x.name))
+                            {
+                                None => String::from("Generate"),
+                                Some(x) => x,
+                            }
+                        ))
+                        .show_ui(ui, |ui| {
                             ui.selectable_value(
                                 &mut self.data.npc_options.ancestry,
-                                Some(ancestry.0.clone()),
-                                ancestry.0.name.clone(),
+                                None,
+                                "Generate",
                             );
-                        }
-                    });
-                egui::ComboBox::from_label("Heritage")
-                    .selected_text(format!(
-                        "{}",
-                        match self.data.npc_options.heritage.as_ref() {
-                            None => String::from("Generate"),
-                            Some(None) => String::from("Normal Person"),
-                            Some(Some(x)) => String::from(&x.name),
-                        }
-                    ))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.data.npc_options.heritage, None, "Generate");
-
-                        ui.selectable_value(
-                            &mut self.data.npc_options.heritage,
-                            Some(None),
-                            "Normal Person",
-                        );
-                        for heritage in &self.generator.data.versitile_heritages {
+                            for ancestry in &self.generator.data.ancestries {
+                                ui.selectable_value(
+                                    &mut self.data.npc_options.ancestry,
+                                    Some(ancestry.0.clone()),
+                                    ancestry.0.name.clone(),
+                                );
+                            }
+                        });
+                    egui::ComboBox::from_label("Heritage")
+                        .selected_text(format!(
+                            "{}",
+                            match self.data.npc_options.heritage.as_ref() {
+                                None => String::from("Generate"),
+                                Some(None) => String::from("Normal Person"),
+                                Some(Some(x)) => String::from(&x.name),
+                            }
+                        ))
+                        .show_ui(ui, |ui| {
                             ui.selectable_value(
                                 &mut self.data.npc_options.heritage,
-                                Some(Some(heritage.0.clone())),
-                                heritage.0.name.clone(),
+                                None,
+                                "Generate",
                             );
-                        }
-                    });
-                egui::ComboBox::from_label("Background")
-                    .selected_text(format!(
-                        "{}",
-                        match self
-                            .data
-                            .npc_options
-                            .background
-                            .as_ref()
-                            .map(|x| String::from(x.name()))
-                        {
-                            None => String::from("Generate"),
-                            Some(x) => x,
-                        }
-                    ))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.data.npc_options.background,
-                            None,
-                            "Generate",
-                        );
-                        for background in &self.generator.data.backgrounds {
+
                             ui.selectable_value(
-                                &mut self.data.npc_options.background,
-                                Some(background.0.clone()),
-                                String::from(background.0.name()),
+                                &mut self.data.npc_options.heritage,
+                                Some(None),
+                                "Normal Person",
                             );
-                        }
-                    });
+                            for heritage in &self.generator.data.versitile_heritages {
+                                ui.selectable_value(
+                                    &mut self.data.npc_options.heritage,
+                                    Some(Some(heritage.0.clone())),
+                                    heritage.0.name.clone(),
+                                );
+                            }
+                        });
+                    if self.data.use_archetype {
+                        egui::ComboBox::from_label("Archetype")
+                            .selected_text(format!(
+                                "{}",
+                                match self.data.npc_options.archetype {
+                                    Some(ref x) => x.name.as_str(),
+                                    None => "No archetype",
+                                }
+                            ))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.data.npc_options.archetype,
+                                    None,
+                                    "No archetype",
+                                );
+
+                                for archetype in &self.generator.data.archetypes {
+                                    let name = &archetype.name;
+                                    let level = archetype.level;
+                                    ui.selectable_value(
+                                        &mut self.data.npc_options.archetype,
+                                        Some(archetype.clone()),
+                                        format!("{name} ({level})"),
+                                    );
+                                }
+                            });
+                    } else {
+                        egui::ComboBox::from_label("Background")
+                            .selected_text(format!(
+                                "{}",
+                                match self
+                                    .data
+                                    .npc_options
+                                    .background
+                                    .as_ref()
+                                    .map(|x| String::from(x.name()))
+                                {
+                                    None => String::from("Generate"),
+                                    Some(x) => x,
+                                }
+                            ))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.data.npc_options.background,
+                                    None,
+                                    "Generate",
+                                );
+                                for background in &self.generator.data.backgrounds {
+                                    ui.selectable_value(
+                                        &mut self.data.npc_options.background,
+                                        Some(background.0.clone()),
+                                        String::from(background.0.name()),
+                                    );
+                                }
+                            });
+                    }
+                });
+                ui.separator();
+                ui.vertical(|ui| {
+                    egui::ComboBox::from_label("Age Range")
+                        .selected_text(format!(
+                            "{}",
+                            match self
+                                .data
+                                .npc_options
+                                .age_range
+                                .as_ref()
+                                .map(|x| String::from(x.to_string()))
+                            {
+                                None => String::from("Generate"),
+                                Some(x) => x,
+                            }
+                        ))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.data.npc_options.age_range,
+                                None,
+                                "Generate",
+                            );
+                            ui.selectable_value(
+                                &mut self.data.npc_options.age_range,
+                                Some(npc_generator_core::AgeRange::Infant),
+                                "Infant",
+                            );
+
+                            ui.selectable_value(
+                                &mut self.data.npc_options.age_range,
+                                Some(npc_generator_core::AgeRange::Child),
+                                "Child",
+                            );
+
+                            ui.selectable_value(
+                                &mut self.data.npc_options.age_range,
+                                Some(npc_generator_core::AgeRange::Youth),
+                                "Youth",
+                            );
+
+                            ui.selectable_value(
+                                &mut self.data.npc_options.age_range,
+                                Some(npc_generator_core::AgeRange::Adult),
+                                "Adult",
+                            );
+
+                            ui.selectable_value(
+                                &mut self.data.npc_options.age_range,
+                                Some(npc_generator_core::AgeRange::Old),
+                                "Old",
+                            );
+
+                            ui.selectable_value(
+                                &mut self.data.npc_options.age_range,
+                                Some(npc_generator_core::AgeRange::Venerable),
+                                "Venerable",
+                            );
+                        });
+                });
             });
 
             ui.separator();
-            ui.add_sized(
-                egui::vec2(ui.available_width(), ui.available_height()),
-                egui::TextEdit::multiline(&mut self.data.generated_text.as_str()),
-            );
+            if let Some(ref resulting_statblock) = self.resulting_statblock {
+                ui.add_sized(
+                    egui::vec2(ui.available_width(), ui.available_height()),
+                    egui::TextEdit::multiline(&mut match self.data.generated_text_format {
+                        GeneratorFormat::Flavor => resulting_statblock.flavor.to_string(),
+                        GeneratorFormat::PF2EStats => {
+                            resulting_statblock.as_pf2e_stats().to_string()
+                        }
+                    }),
+                );
+            }
         });
     }
 }

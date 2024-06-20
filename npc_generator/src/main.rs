@@ -38,11 +38,7 @@ fn generate_distribution_preview() -> Result<(), Box<dyn Error>> {
             }
 
             let npc_options = NpcOptions {
-                ancestry: None,
-                heritage: None,
-                background: None,
-                ancestry_weights: None,
-                archetype: None,
+                ..Default::default()
             };
             let result = generator.generate(&npc_options);
             let ancestry = result.ancestry.unwrap();
@@ -141,11 +137,13 @@ fn load_generator_data() -> Result<Arc<GeneratorData>, Box<dyn Error>> {
         ron::from_str(&fs::read_to_string(path)?)?
     };
 
-    let archetypes: Vec<Archetype> = {
+    let mut archetypes: Vec<Archetype> = {
         let mut path = data.clone();
         path.push("archetypes.ron");
         ron::from_str(&fs::read_to_string(path)?)?
     };
+    archetypes.sort_by_key(|x| x.level);
+
     Ok(Arc::new(npc_generator_core::generators::GeneratorData {
         ancestries,
         versitile_heritages: heritages,

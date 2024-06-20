@@ -32,11 +32,16 @@ impl<R: rand::Rng> Generator<R> {
         })
     }
 
-    fn generate_age<'a>(&self, rng: &mut impl Rng, ancestry: &'a Ancestry) -> (&'a AgeRange, u64) {
-        let age_range = {
+    fn generate_age<'a>(
+        &self,
+        rng: &mut impl Rng,
+        ancestry: &'a Ancestry,
+        age_range: Option<&'a AgeRange>,
+    ) -> (&'a AgeRange, u64) {
+        let age_range = age_range.unwrap_or_else(|| {
             let (values, distribution) = &ancestry.age_range_distribution.split_weights().unwrap();
             values[distribution.sample(rng)]
-        };
+        });
 
         let valid_ages = ancestry.age_ranges.get(age_range);
         (age_range, valid_ages.choose(rng).unwrap())
@@ -106,7 +111,7 @@ impl<R: rand::Rng> Generator<R> {
         };
         let (age_range, age) = {
             let mut age_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
-            self.generate_age(&mut age_rng, &ancestry)
+            self.generate_age(&mut age_rng, &ancestry, options.age_range.as_ref())
         };
 
         let mut traits: HashSet<Trait> = HashSet::new();
@@ -129,27 +134,45 @@ impl<R: rand::Rng> Generator<R> {
             ..Default::default()
         };
 
-        let pre_statblock = if let Some(ref archetype) = options.archetype {
-            Statblock {
-                perception: archetype.perception,
-                land_speed: archetype.speed,
-                skills: archetype
-                    .skills
-                    .iter()
-                    .map(|(x, y)| (x.clone(), y.clone()))
-                    .collect::<Vec<_>>(),
-                attributes: archetype.attributes.clone(),
-                items: archetype.items.clone(),
-                armor_class: archetype.armor_class,
-                fortitude_save: archetype.fortitude_save,
-                reflex_save: archetype.reflex_save,
-                will_save: archetype.will_save,
-                hit_points: archetype.hp,
-                level: archetype.level,
-                ..pre_statblock
-            }
+        let (background, pre_statblock) = if let Some(ref archetype) = options.archetype {
+            let archetype_background = Background {
+                name: archetype.name.clone(),
+                trainings: Default::default(),
+                traits: Default::default(),
+            };
+            (
+                archetype_background,
+                Statblock {
+                    perception: archetype.perception,
+                    land_speed: archetype.speed,
+                    skills: archetype
+                        .skills
+                        .iter()
+                        .map(|(x, y)| (x.clone(), y.clone()))
+                        .collect::<Vec<_>>(),
+                    attributes: archetype.attributes.clone(),
+                    items: archetype.items.clone(),
+                    armor_class: archetype.armor_class,
+                    fortitude_save: archetype.fortitude_save,
+                    reflex_save: archetype.reflex_save,
+                    will_save: archetype.will_save,
+                    hit_points: archetype.hp,
+                    level: archetype.level,
+                    ..pre_statblock
+                },
+            )
         } else {
-            Statblock { ..pre_statblock }
+            let mut stats_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+            (
+                background.clone(),
+                generate_stats(
+                    &mut stats_rng,
+                    &ancestry,
+                    heritage.as_ref(),
+                    &background,
+                    pre_statblock,
+                ),
+            )
         };
         let mut flavor_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
 
@@ -253,6 +276,7 @@ impl<R: rand::Rng> Generator<R> {
             ),
             lineage_line: generate_lineage_line(heritage),
             hair_and_eyes_line: generate_flavor_hair_and_eyes_line(rng, &ancestry, heritage),
+            skin_line: generate_flavor_skin_line(rng, &ancestry, heritage),
         }
     }
 
@@ -300,6 +324,87 @@ impl<R: rand::Rng> Generator<R> {
         };
 
         format!("{first_name} {surname}")
+    }
+}
+
+fn generate_stats(
+    stats_rng: &mut rand::prelude::StdRng,
+    ancestry: &Ancestry,
+    _heritage: Option<&Heritage>,
+    _background: &Background,
+    pre_statblock: Statblock,
+) -> Statblock {
+    let level = pre_statblock.level;
+    let mut attributes = AttributeStats::default();
+
+    let mut choosen_this_round = HashSet::new();
+    for amod in ancestry.ability_modifications.0.iter() {
+        match amod {
+            AbilityBoost::Boost(ability) => {
+                *attributes.get_ability_mut(*ability) += 1;
+                choosen_this_round.insert(ability);
+            }
+            AbilityBoost::Flaw(ability) => {
+                *attributes.get_ability_mut(*ability) -= 1;
+                choosen_this_round.insert(ability);
+            }
+            AbilityBoost::Free => {
+                let mut ability = Ability::values().choose(stats_rng).unwrap();
+                while choosen_this_round.contains(ability) {
+                    ability = Ability::values().choose(stats_rng).unwrap();
+                }
+
+                *attributes.get_ability_mut(*ability) += 1;
+            }
+        }
+    }
+    choosen_this_round.clear();
+    for _ in 0..4 {
+        let mut ability = Ability::values().choose(stats_rng).unwrap();
+        while choosen_this_round.contains(ability) {
+            ability = Ability::values().choose(stats_rng).unwrap();
+        }
+
+        *attributes.get_ability_mut(*ability) += 1;
+    }
+
+    choosen_this_round.clear();
+    for _ in 0..4 {
+        let mut ability = Ability::values().choose(stats_rng).unwrap();
+        while choosen_this_round.contains(ability) {
+            ability = Ability::values().choose(stats_rng).unwrap();
+        }
+
+        *attributes.get_ability_mut(*ability) += 1;
+    }
+
+    let skills = Vec::new();
+
+    // calculate initial proficiencies
+
+    let mut proficiencies = Proficiencies::default();
+
+    proficiencies.perception = Proficiency::Trained;
+    proficiencies.fortitude_save = Proficiency::Trained;
+    proficiencies.will_save = Proficiency::Trained;
+    proficiencies.reflex_save = Proficiency::Trained;
+    proficiencies.unarmed = Proficiency::Trained;
+    proficiencies.unarmored_defense = Proficiency::Trained;
+
+    Statblock {
+        perception: (attributes.wisdom + proficiencies.perception.bonus_for_level(level)) as i16,
+        fortitude_save: (attributes.constitution
+            + proficiencies.fortitude_save.bonus_for_level(level)) as i16,
+        reflex_save: (attributes.dexterity + proficiencies.fortitude_save.bonus_for_level(level))
+            as i16,
+        will_save: (attributes.wisdom + proficiencies.fortitude_save.bonus_for_level(level)) as i16,
+        armor_class: (attributes.dexterity + proficiencies.unarmored_defense.bonus_for_level(level))
+            as i16,
+        land_speed: ancestry.speed,
+        skills,
+        attributes,
+        proficiencies,
+        ..pre_statblock
     }
 }
 
@@ -481,4 +586,21 @@ fn generate_flavor_hair_and_eyes_line(
         generate_flavor_eyes(&mut rng, ancestry, heritage)
     )
     .into()
+}
+fn generate_flavor_skin_line(
+    mut rng: &mut impl Rng,
+    ancestry: &Ancestry,
+    heritage: Option<&Heritage>,
+) -> String {
+    let skin_texture = {
+        let (skin_textures, distribution) = ancestry.possible_skin_texture.split_weights().unwrap();
+        skin_textures[rng.sample(distribution)]
+    };
+
+    let skin_tone = {
+        let (skin_tones, distribution) = ancestry.possible_skin_tone.split_weights().unwrap();
+        skin_tones[rng.sample(distribution)]
+    };
+    let skin = &ancestry.skin_substance;
+    format!("They have {skin_texture} {skin_tone} {skin}.")
 }

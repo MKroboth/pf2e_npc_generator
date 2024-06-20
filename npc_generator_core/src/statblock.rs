@@ -2,12 +2,13 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AgeRange, Ancestry, Heritage, Skill, Trait};
+use crate::{Ability, AgeRange, Ancestry, Heritage, Proficiencies, Skill, Trait};
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct NpcFlavor {
     pub description_line: String,
     pub hair_and_eyes_line: String,
+    pub skin_line: String,
     pub lineage_line: Option<String>,
 }
 
@@ -15,10 +16,46 @@ impl Display for NpcFlavor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{}", self.description_line)?;
         writeln!(f, "{}", self.hair_and_eyes_line)?;
+        writeln!(f, "{}", self.skin_line)?;
         if let Some(ref lineage_line) = self.lineage_line {
             writeln!(f, "{}", lineage_line)?;
         }
         Ok(())
+    }
+}
+
+#[derive(Default, Debug, Serialize, Deserialize, Copy, Clone)]
+pub struct AbilityValue(i8, bool);
+
+impl AbilityValue {
+    pub fn new(value: i8) -> Self {
+        Self(value, false)
+    }
+
+    pub fn boost(self) -> Self {
+        if self.0 < 4 {
+            Self(self.0 + 1, false)
+        } else if self.1 {
+            Self(self.0 + 1, false)
+        } else {
+            Self(self.0, true)
+        }
+    }
+
+    pub fn flaw(self) -> Self {
+        Self(self.0 - 1, false)
+    }
+}
+
+impl Display for AbilityValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:+}{}", self.0, if self.1 { "*" } else { "" })
+    }
+}
+
+impl From<AbilityValue> for i8 {
+    fn from(value: AbilityValue) -> Self {
+        value.0
     }
 }
 
@@ -32,7 +69,20 @@ pub struct AttributeStats {
     pub charisma: i8,
 }
 
-#[derive(Default, Debug)]
+impl AttributeStats {
+    pub fn get_ability_mut(&mut self, ability: Ability) -> &mut i8 {
+        match ability {
+            Ability::Charisma => &mut self.charisma,
+            Ability::Constitution => &mut self.constitution,
+            Ability::Dexterity => &mut self.dexterity,
+            Ability::Intelligence => &mut self.intelligence,
+            Ability::Strength => &mut self.strength,
+            Ability::Wisdom => &mut self.wisdom,
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct Statblock {
     pub name: String,
     pub class: String,
@@ -57,12 +107,16 @@ pub struct Statblock {
     pub flavor: NpcFlavor,
     pub ancestry: Option<Ancestry>,
     pub heritage: Option<Heritage>,
+    pub proficiencies: Proficiencies,
 }
 pub struct PF2eStats(Statblock);
 
 impl Statblock {
     pub fn into_pf2e_stats(self) -> PF2eStats {
         PF2eStats(self)
+    }
+    pub fn as_pf2e_stats(&self) -> PF2eStats {
+        PF2eStats(self.clone())
     }
 }
 
