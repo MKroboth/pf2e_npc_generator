@@ -10,6 +10,9 @@ pub struct NpcFlavor {
     pub hair_and_eyes_line: String,
     pub skin_line: String,
     pub lineage_line: Option<String>,
+    pub size_and_build_line: String,
+    pub face_line: String,
+    pub habit_line: String,
 }
 
 impl Display for NpcFlavor {
@@ -20,6 +23,10 @@ impl Display for NpcFlavor {
         if let Some(ref lineage_line) = self.lineage_line {
             writeln!(f, "{}", lineage_line)?;
         }
+
+        writeln!(f, "{}", self.size_and_build_line)?;
+        writeln!(f, "{}", self.face_line)?;
+        writeln!(f, "{}", self.habit_line)?;
         Ok(())
     }
 }
@@ -160,6 +167,7 @@ impl PF2eStats {
         skills.sort_by_key(|x| x.0.to_string());
         let mut skills_string = String::new();
         for skill in skills.iter().map(|x| format!("{} {:+},", x.0, x.1)) {
+            skills_string.push(' ');
             skills_string.push_str(&skill);
         }
         let _ = skills_string.pop();
@@ -202,7 +210,7 @@ impl Display for PF2eStats {
         writeln!(f, "{}\n", self.traits())?;
         writeln!(f, "**Perception** {:+}", self.0.perception)?;
         writeln!(f, "**Languages** {}", self.languages())?;
-        writeln!(f, "**Skills** {}", self.skills())?;
+        writeln!(f, "**Skills**{}", self.skills())?;
         writeln!(f, "{}", self.attributes())?;
         writeln!(f, "\n---\n")?;
         writeln!(f, "{}", self.ac_and_saves())?;

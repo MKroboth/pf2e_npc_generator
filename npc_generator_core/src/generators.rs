@@ -16,7 +16,6 @@ pub struct GeneratorData {
     pub names: HashMap<Trait, HashMap<String, WeightMap<String>>>,
     pub archetypes: Vec<Archetype>,
 }
-#[derive(Debug, Serialize, Deserialize)]
 pub struct Generator<R: rand::Rng> {
     random_number_generator: R,
     pub data: Arc<GeneratorData>,
@@ -247,7 +246,7 @@ impl<R: rand::Rng> Generator<R> {
     pub fn generate_flavor(
         &self,
         rng: &mut impl Rng,
-        _skills: &[(Skill, i16)],
+        skills: &[(Skill, i16)],
         _attributes: &AttributeStats,
         name: impl AsRef<str>,
         _class: Option<&str>,
@@ -277,6 +276,9 @@ impl<R: rand::Rng> Generator<R> {
             lineage_line: generate_lineage_line(heritage),
             hair_and_eyes_line: generate_flavor_hair_and_eyes_line(rng, &ancestry, heritage),
             skin_line: generate_flavor_skin_line(rng, &ancestry, heritage),
+            size_and_build_line: generate_size_and_build(rng, &ancestry, age, age_range, heritage),
+            face_line: generate_flavor_face_line(rng, &ancestry),
+            habit_line: generate_flavor_habit_line(rng, &ancestry),
         }
     }
 
@@ -307,10 +309,14 @@ impl<R: rand::Rng> Generator<R> {
             .choose(name_rng)
             .expect("We have no traits to get our name from");
 
-        let names = names.get(name_trait).unwrap().get(sex).expect(&format!(
-            "No names for given sex `{sex}` present on ancestry `{}`",
-            ancestry.name
-        ));
+        let names = if let Some(name) = names.get(name_trait).unwrap().get(sex) {
+            name
+        } else {
+            // (&format!(
+            // "No names for given sex `{sex}` present on name trait `{}`",
+            // name_trait
+            return String::from("@@NAME_ERROR@@");
+        };
         let first_name = {
             let (names, weights) = names.split_weights().unwrap();
             names[name_rng.sample(weights)].clone()
@@ -327,11 +333,27 @@ impl<R: rand::Rng> Generator<R> {
     }
 }
 
+fn generate_size_and_build(
+    _rng: &mut impl Rng,
+    _ancestry: &Ancestry,
+    _age: u64,
+    _age_range: AgeRange,
+    _heritage: Option<&Heritage>,
+) -> String {
+    format!("")
+}
+
+fn generate_flavor_face_line(_rng: &mut impl Rng, _ancestry: &Ancestry) -> String {
+    format!("They have a face.")
+}
+fn generate_flavor_habit_line(_rng: &mut impl Rng, _ancestry: &Ancestry) -> String {
+    format!("")
+}
 fn generate_stats(
     stats_rng: &mut rand::prelude::StdRng,
     ancestry: &Ancestry,
     _heritage: Option<&Heritage>,
-    _background: &Background,
+    background: &Background,
     pre_statblock: Statblock,
 ) -> Statblock {
     let level = pre_statblock.level;
@@ -378,18 +400,86 @@ fn generate_stats(
         *attributes.get_ability_mut(*ability) += 1;
     }
 
-    let skills = Vec::new();
-
     // calculate initial proficiencies
+    let proficiencies = {
+        let mut proficiencies = Proficiencies::default();
 
-    let mut proficiencies = Proficiencies::default();
+        let excluded_skills = {
+            let mut excluded_skills = HashSet::new();
+            for training in background.trainings.iter() {
+                proficiencies
+                    .skills
+                    .insert(training.clone(), Proficiency::Trained);
+                excluded_skills.insert(training.clone());
+            }
+            excluded_skills
+        };
 
-    proficiencies.perception = Proficiency::Trained;
-    proficiencies.fortitude_save = Proficiency::Trained;
-    proficiencies.will_save = Proficiency::Trained;
-    proficiencies.reflex_save = Proficiency::Trained;
-    proficiencies.unarmed = Proficiency::Trained;
-    proficiencies.unarmored_defense = Proficiency::Trained;
+        // calculate additional skills for intelligence
+        let selected_skills = {
+            let additional_skills = 2 + attributes.intelligence;
+            let mut selected_skills: HashSet<Skill> = HashSet::new();
+
+            let mut loop_guard = 10_000;
+            while selected_skills.len() != additional_skills as usize {
+                let choosen_skill = Skill::values_excluding_lore().choose(stats_rng).unwrap();
+                if !excluded_skills.contains(&choosen_skill) {
+                    selected_skills.insert(choosen_skill.clone());
+                }
+                loop_guard -= 1;
+                if loop_guard == 0 {
+                    break;
+                }
+            }
+            selected_skills
+        };
+
+        proficiencies.skills.extend(
+            selected_skills
+                .into_iter()
+                .map(|x| (x, Proficiency::Trained)),
+        );
+
+        proficiencies.perception = Proficiency::Trained;
+        proficiencies.fortitude_save = Proficiency::Trained;
+        proficiencies.will_save = Proficiency::Trained;
+        proficiencies.reflex_save = Proficiency::Trained;
+        proficiencies.unarmed = Proficiency::Trained;
+        proficiencies.unarmored_defense = Proficiency::Trained;
+        proficiencies
+    };
+
+    let skills = {
+        let mut skills = Vec::new();
+
+        for (skill, proficiency) in proficiencies.skills.iter() {
+            let modifier: i16 = match skill {
+                Skill::Acrobatics => attributes.dexterity,
+                Skill::Arcana => attributes.intelligence,
+                Skill::Athletics => attributes.strength,
+                Skill::Crafting => attributes.intelligence,
+                Skill::Deception => attributes.charisma,
+                Skill::Diplomacy => attributes.charisma,
+                Skill::Intimidation => attributes.charisma,
+                Skill::Lore(_) => attributes.intelligence,
+                Skill::Medicine => attributes.wisdom,
+                Skill::Nature => attributes.wisdom,
+                Skill::Occultism => attributes.intelligence,
+                Skill::Performance => attributes.charisma,
+                Skill::Religion => attributes.wisdom,
+                Skill::Society => attributes.intelligence,
+                Skill::Stealth => attributes.dexterity,
+                Skill::Survival => attributes.wisdom,
+                Skill::Thievery => attributes.dexterity,
+            } as i16;
+            let proficiency_bonus = proficiency.bonus_for_level(level) as i16;
+
+            skills.push((skill.clone(), modifier + proficiency_bonus));
+        }
+        skills
+    };
+
+    let hit_points: i32 = (ancestry.base_hp as i32) + (attributes.constitution as i32);
 
     Statblock {
         perception: (attributes.wisdom + proficiencies.perception.bonus_for_level(level)) as i16,
@@ -404,6 +494,7 @@ fn generate_stats(
         skills,
         attributes,
         proficiencies,
+        hit_points,
         ..pre_statblock
     }
 }

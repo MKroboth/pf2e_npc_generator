@@ -1,7 +1,10 @@
 use egui;
 use npc_generator_core::generators::GeneratorData;
 use npc_generator_core::{generators::Generator, *};
+
+#[cfg(feature = "rayon")]
 use rayon::iter::IntoParallelIterator;
+#[cfg(feature = "rayon")]
 use rayon::iter::ParallelIterator;
 use std::collections::HashMap;
 use std::env::args;
@@ -14,6 +17,16 @@ use std::{
 };
 use std::{io, usize};
 mod ui;
+
+#[cfg(not(feature = "rayon"))]
+fn generate_iterator(range: std::ops::Range<usize>) -> impl Iterator<Item = usize> {
+    range.into_iter()
+}
+
+#[cfg(feature = "rayon")]
+fn generate_iterator(range: std::ops::Range<usize>) -> rayon::range::Iter<usize> {
+    range.into_par_iter()
+}
 
 fn generate_distribution_preview() -> Result<(), Box<dyn Error>> {
     let generator_data = load_generator_data()?;
@@ -29,7 +42,7 @@ fn generate_distribution_preview() -> Result<(), Box<dyn Error>> {
 
         use std::time::Instant;
         let now = Instant::now();
-        (0..sample_size).into_par_iter().for_each(|i| {
+        generate_iterator(0..sample_size).for_each(|i| {
             let mut generator = Generator::new(rand::thread_rng(), generator_data.clone()).unwrap();
             let percent = (100.0 / sample_size as f64) * i as f64;
             if percent as u8 as f64 == percent {
@@ -95,8 +108,12 @@ fn generate_distribution_preview() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn generate_character() -> Result<(), Box<dyn Error>> {
-    let generator_data = load_generator_data()?;
+    use std::{fs::File, io::Read};
+
+    use native_dialog::FileDialog;
+
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([400.0, 300.0])
@@ -104,6 +121,61 @@ fn generate_character() -> Result<(), Box<dyn Error>> {
         ..Default::default()
     };
 
+    let generator_data = if let Some(x) = load_generator_data().ok() {
+        x
+    } else {
+        let path = FileDialog::new()
+            .set_location("~/Desktop")
+            .add_filter("Generator Source Data Package", &["zip"])
+            .show_open_single_file()
+            .unwrap();
+
+        let file = File::open(path.unwrap())?;
+        let mut zip = zip::ZipArchive::new(file)?;
+
+        let ancestries: WeightMap<Ancestry> = {
+            let mut file = zip.by_name("ancestries.ron")?;
+            let mut data = String::new();
+            file.read_to_string(&mut data)?;
+            ron::from_str(&data)?
+        };
+        let heritages: WeightMap<Heritage> = {
+            let mut file = zip.by_name("heritages.ron")?;
+            let mut data = String::new();
+            file.read_to_string(&mut data)?;
+            ron::from_str(&data)?
+        };
+        let backgrounds: WeightMap<Background> = {
+            let mut file = zip.by_name("backgrounds.ron")?;
+            let mut data = String::new();
+            file.read_to_string(&mut data)?;
+            ron::from_str(&data)?
+        };
+        let names: HashMap<Trait, HashMap<String, WeightMap<String>>> = {
+            let mut file = zip.by_name("names.ron")?;
+            let mut data = String::new();
+            file.read_to_string(&mut data)?;
+            ron::from_str(&data)?
+        };
+
+        let mut archetypes: Vec<Archetype> = {
+            let mut file = zip.by_name("archetypes.ron")?;
+            let mut data = String::new();
+            file.read_to_string(&mut data)?;
+            ron::from_str(&data)?
+        };
+        archetypes.sort_by_key(|x| x.level);
+
+        Arc::new(npc_generator_core::generators::GeneratorData {
+            ancestries,
+            versitile_heritages: heritages,
+            normal_heritage_weight: 0.8,
+            backgrounds,
+            heritages: Default::default(),
+            names,
+            archetypes,
+        })
+    };
     eframe::run_native(
         "Character Generator",
         native_options,
@@ -155,9 +227,17 @@ fn load_generator_data() -> Result<Arc<GeneratorData>, Box<dyn Error>> {
     }))
 }
 
+fn load_generator_data_pak() {}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), Box<dyn Error>> {
-    if args().len() > 1 {
-        generate_distribution_preview()
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 2 {
+        match args[1].as_str() {
+            "-g" => generate_distribution_preview()?,
+            _ => println!("Unknown args, try -g or -d"),
+        };
+        Ok(())
     } else {
         generate_character()
     }

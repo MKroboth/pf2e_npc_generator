@@ -36,6 +36,7 @@ pub struct Ancestry {
     pub hair_substance: String,
     #[serde(default = "default_skin_substance")]
     pub skin_substance: String,
+    pub base_hp: u8,
 }
 fn default_hair_substance() -> String {
     String::from("hair")
@@ -66,6 +67,7 @@ impl Ancestry {
         is_asexual: bool,
         hair_substance: String,
         skin_substance: String,
+        base_hp: u8,
     ) -> Self {
         Self {
             traits,
@@ -89,6 +91,7 @@ impl Ancestry {
             skin_substance,
             possible_skin_tone,
             possible_skin_texture,
+            base_hp,
         }
     }
 }

@@ -5,6 +5,7 @@
             "Human",
             "Humanoid",
         ],
+        base_hp: 8,
         name: "Human",
         ability_modifications: [
             Free,
@@ -162,6 +163,7 @@
             "Elf",
             "Humanoid",
         ],
+        base_hp: 6,
         name: "Elf",
         ability_modifications: [
             Boost(Dexterity),
@@ -335,6 +337,7 @@
             "Humanoid",
         ],
         name: "Orc",
+        base_hp: 10,
         ability_modifications: [
             Free,
             Free,
@@ -481,7 +484,9 @@
         traits: [
             "Gnome",
             "Humanoid",
-        ],     possible_skin_tone: {
+        ],
+        base_hp: 8,
+        possible_skin_tone: {
             "sable": 5, 
             "espresso": 8, 
             "umber": 8, 
@@ -634,6 +639,7 @@
             "Goblin",
             "Humanoid",
         ],
+        base_hp: 6,
         name: "Goblin",     possible_skin_tone: {
             "green": 4,
             "mahagony red": 4,
@@ -707,7 +713,9 @@
         traits: [
             "Halfling",
             "Humanoid",
-        ],     possible_skin_tone: {
+        ],     
+        base_hp: 6,
+        possible_skin_tone: {
             "sable": 5, 
             "espresso": 8, 
             "umber": 8, 
@@ -882,6 +890,7 @@
             "Dwarf",
             "Humanoid",
         ],
+        base_hp: 10,
         name: "Dwarf",     possible_skin_tone: {
             "sable": 5, 
             "espresso": 8, 
@@ -1056,6 +1065,7 @@
             "Leshy",
             "Plant",
         ],
+        base_hp: 8,
         skin_substance: "bark",
      possible_skin_tone: {
             "sable": 5, 
@@ -1168,6 +1178,7 @@
             "Kitsune",
             "Humanoid",
         ],
+        base_hp: 8,
         name: "Kitsune",
         skin_substance: "fur",
         ability_modifications: [

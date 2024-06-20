@@ -685,8 +685,8 @@
                         }
             },
                         "Kitsune": {
-            "male": { "Hideyoshi": 1},
-"female": { "Mari": 1 },
+            "male": { "Hideyoshi": 1, "Kyousuke":1, "Kazuma":1, "Nozomi":1, "Gorou":1},
+"female": { "Mari": 1, "Kanae":1, "Ayaka":1, "Sanae": 1, "Mio": 1, "Mayu": 1, "Miku":1, "Nozomi": 1, "Homura": 1 },
 
 },
 }

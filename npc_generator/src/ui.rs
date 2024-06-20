@@ -64,9 +64,7 @@ impl UserInterface {
 
 impl eframe::App for UserInterface {
     /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, &self.data);
-    }
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {}
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {

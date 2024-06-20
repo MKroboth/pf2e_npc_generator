@@ -272,6 +272,30 @@ pub enum Skill {
     Thievery,
 }
 
+impl Skill {
+    pub fn values_excluding_lore() -> &'static [Skill] {
+        static SKILLS_EXCLUDING_LORE: [Skill; 16] = [
+            Skill::Acrobatics,
+            Skill::Arcana,
+            Skill::Athletics,
+            Skill::Crafting,
+            Skill::Deception,
+            Skill::Diplomacy,
+            Skill::Intimidation,
+            Skill::Medicine,
+            Skill::Nature,
+            Skill::Occultism,
+            Skill::Performance,
+            Skill::Religion,
+            Skill::Society,
+            Skill::Stealth,
+            Skill::Survival,
+            Skill::Thievery,
+        ];
+        &SKILLS_EXCLUDING_LORE
+    }
+}
+
 impl Display for Skill {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
