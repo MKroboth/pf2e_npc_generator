@@ -1,7 +1,7 @@
 use std::{fmt::Display, sync::Arc};
 
 use npc_generator_core::{
-    generators::{Generator, GeneratorData},
+    generators::{Generator, GeneratorData, GeneratorScripts},
     NamedElement, NpcOptions, Statblock,
 };
 use rand::rngs::ThreadRng;
@@ -48,7 +48,11 @@ struct UIData {
 
 impl UserInterface {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>, generator_data: Arc<GeneratorData>) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        generator_data: Arc<GeneratorData>,
+        generator_scripts: Arc<GeneratorScripts>,
+    ) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -56,7 +60,8 @@ impl UserInterface {
 
         UserInterface {
             data,
-            generator: Generator::new(ThreadRng::default(), generator_data).unwrap(),
+            generator: Generator::new(ThreadRng::default(), generator_data, generator_scripts)
+                .unwrap(),
             resulting_statblock: Default::default(),
         }
     }

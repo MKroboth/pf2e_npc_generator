@@ -1,4 +1,5 @@
 use super::*;
+use gluon::ThreadExt;
 use rand::distributions::Distribution;
 use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
@@ -19,15 +20,22 @@ pub struct GeneratorData {
 pub struct Generator<R: rand::Rng> {
     random_number_generator: R,
     pub data: Arc<GeneratorData>,
+    pub scripts: Arc<GeneratorScripts>,
 }
+pub struct GeneratorScripts {
+    pub build_flavor_description_line: String,
+}
+
 impl<R: rand::Rng> Generator<R> {
     pub fn new(
         rng: R,
         data: Arc<GeneratorData>,
+        scripts: Arc<GeneratorScripts>,
     ) -> Result<Generator<R>, Box<dyn std::error::Error>> {
         Ok(Self {
             random_number_generator: rng,
             data,
+            scripts,
         })
     }
 
@@ -184,6 +192,7 @@ impl<R: rand::Rng> Generator<R> {
             ancestry: Some(ancestry.clone()),
             heritage: heritage.clone(),
             flavor: self.generate_flavor(
+                self.scripts.clone(),
                 &mut flavor_rng,
                 &pre_statblock.skills,
                 &pre_statblock.attributes,
@@ -250,6 +259,7 @@ impl<R: rand::Rng> Generator<R> {
 
     pub fn generate_flavor(
         &self,
+        generator_scripts: Arc<GeneratorScripts>,
         rng: &mut impl Rng,
         skills: &[(Skill, i16)],
         _attributes: &AbilityStats,
@@ -269,6 +279,7 @@ impl<R: rand::Rng> Generator<R> {
     ) -> NpcFlavor {
         NpcFlavor {
             description_line: generate_flavor_description_line(
+                generator_scripts,
                 name,
                 age,
                 age_range,
@@ -516,6 +527,7 @@ fn generate_lineage_line(heritage: Option<&Heritage>) -> Option<String> {
 }
 
 fn generate_flavor_description_line(
+    generator_scripts: Arc<GeneratorScripts>,
     name: impl AsRef<str>,
     age: u64,
     age_range: AgeRange,
