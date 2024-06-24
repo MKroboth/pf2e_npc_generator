@@ -9,6 +9,7 @@ edition = "2021"
 gluon = "0.18.2"
 log = "0.4.21"
 rand = "0.8.5"
+rhai = "1.18.0"
 serde = { version = "1.0.203", features = ["std", "derive", "alloc", "rc"] }
 
 [dev-dependencies]
