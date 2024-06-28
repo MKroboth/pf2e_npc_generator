@@ -9,9 +9,11 @@ use rayon::iter::IntoParallelIterator;
 #[cfg(feature = "rayon")]
 use rayon::iter::ParallelIterator;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::env::args;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::path::Path;
 use std::{
     error::Error,
     fs,
@@ -19,6 +21,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 use std::{io, usize};
+use thiserror::Error;
+mod config;
 mod ui;
 
 #[cfg(not(feature = "rayon"))]
@@ -140,15 +144,27 @@ fn generate_character() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn load_generator_data_from_zip(
-) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), Box<dyn Error>> {
-    let path = FileDialog::new()
+fn show_open_zip_dialog() -> Result<Option<PathBuf>, native_dialog::Error> {
+    FileDialog::new()
         .set_location("~/Desktop")
         .add_filter("Generator Source Data Package", &["zip"])
         .show_open_single_file()
-        .unwrap();
+}
+#[derive(Error, Debug)]
+enum LoadGeneratorDataFromZipError {
+    #[error("Error while opening the specified file")]
+    IoError(#[from] std::io::Error),
+    #[error("Error while interacting with zip file")]
+    ZipError(#[from] zip::result::ZipError),
+    #[error("Error while deserializing data from ron files")]
+    DeserializationError(#[from] ron::error::SpannedError),
+}
 
-    let file = File::open(path.unwrap())?;
+fn load_generator_data_from_zip(
+    zip_path: impl AsRef<Path>,
+) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), LoadGeneratorDataFromZipError> {
+    let file = File::open(zip_path)?;
+
     let mut zip = zip::ZipArchive::new(file)?;
 
     let generator_data = {
@@ -185,18 +201,16 @@ fn load_generator_data_from_zip(
         };
         archetypes.sort_by_key(|x| x.level);
 
-        Ok::<Arc<GeneratorData>, Box<dyn Error>>(Arc::new(
-            npc_generator_core::generators::GeneratorData {
-                ancestries,
-                versitile_heritages: heritages,
-                normal_heritage_weight: 0.8,
-                backgrounds,
-                heritages: Default::default(),
-                names,
-                archetypes,
-            },
-        ))
-    }?;
+        Arc::new(npc_generator_core::generators::GeneratorData {
+            ancestries,
+            versitile_heritages: heritages,
+            normal_heritage_weight: 0.8,
+            backgrounds,
+            heritages: Default::default(),
+            names,
+            archetypes,
+        })
+    };
 
     let generator_scripts = {
         let build_flavor_description_line = {
@@ -204,18 +218,28 @@ fn load_generator_data_from_zip(
             io::read_to_string(&mut script)
         }?;
 
-        Ok::<Arc<GeneratorScripts>, Box<dyn Error>>(Arc::new(GeneratorScripts {
+        Arc::new(GeneratorScripts {
             build_flavor_description_line,
-        }))
-    }?;
+        })
+    };
 
     Ok((generator_data, generator_scripts))
 }
+#[derive(Error, Debug)]
+enum LoadGeneratorDataFromDirectoryError {
+    #[error("Error while opening the specified file")]
+    IoError(#[from] std::io::Error),
+    #[error("Error while interacting with zip file")]
+    ZipError(#[from] zip::result::ZipError),
+    #[error("Error while deserializing data from ron files")]
+    DeserializationError(#[from] ron::error::SpannedError),
+}
 
-fn load_generator_data_from_current_work_directory(
-) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), Box<dyn Error>> {
+fn load_generator_data_from_directory(
+    path: impl AsRef<Path>,
+) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), LoadGeneratorDataFromDirectoryError> {
     let generator_data = {
-        let mut data: PathBuf = std::env::current_dir()?;
+        let mut data: PathBuf = path.as_ref().into();
         data.push("data");
 
         let ancestries: WeightMap<Ancestry> = {
@@ -246,18 +270,16 @@ fn load_generator_data_from_current_work_directory(
         };
         archetypes.sort_by_key(|x| x.level);
 
-        Ok::<Arc<GeneratorData>, Box<dyn Error>>(Arc::new(
-            npc_generator_core::generators::GeneratorData {
-                ancestries,
-                versitile_heritages: heritages,
-                normal_heritage_weight: 0.8,
-                backgrounds,
-                heritages: Default::default(),
-                names,
-                archetypes,
-            },
-        ))
-    }?;
+        Arc::new(npc_generator_core::generators::GeneratorData {
+            ancestries,
+            versitile_heritages: heritages,
+            normal_heritage_weight: 0.8,
+            backgrounds,
+            heritages: Default::default(),
+            names,
+            archetypes,
+        })
+    };
 
     let generator_scripts = {
         let mut scripts: PathBuf = std::env::current_dir()?;
@@ -272,20 +294,49 @@ fn load_generator_data_from_current_work_directory(
             fs::read_to_string(path)
         }?;
 
-        Ok::<Arc<GeneratorScripts>, Box<dyn Error>>(Arc::new(GeneratorScripts {
+        Arc::new(GeneratorScripts {
             build_flavor_description_line,
-        }))
-    }?;
+        })
+    };
 
     Ok((generator_data, generator_scripts))
 }
-fn load_generator_data() -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), Box<dyn Error>> {
-    match load_generator_data_from_current_work_directory() {
-        Ok(data) => Ok(data),
-        Err(err) => {
-            error!("{}", err);
-            load_generator_data_from_zip()
+
+#[derive(Error, Debug)]
+enum LoadGeneratorDataError {
+    #[error("Error while loading generator data from directory")]
+    LoadFromDirectoryError(#[from] LoadGeneratorDataFromDirectoryError),
+    #[error("Error while deserializing data from zip file")]
+    DeserializationError(#[from] LoadGeneratorDataFromZipError),
+    #[error("Can't show dialog to select zip file")]
+    ShowFileDialogError(#[from] native_dialog::Error),
+    #[error("Invalid current working directory")]
+    InvalidCurrentWorkingDirectoryError(#[from] std::io::Error),
+    #[error("No zip file selected")]
+    NoZipFileSelectedError,
+}
+
+fn load_generator_data(
+) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), LoadGeneratorDataError> {
+    let generator_data = std::env::current_dir()
+        .map_err(LoadGeneratorDataError::from)
+        .map(load_generator_data_from_directory)
+        .map_err(LoadGeneratorDataError::from);
+    fn handle_err(
+        err: LoadGeneratorDataError,
+    ) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), LoadGeneratorDataError> {
+        error!("{}", err);
+        if let Some(file_path) = show_open_zip_dialog()? {
+            Ok(load_generator_data_from_zip(file_path)?)
+        } else {
+            Err(LoadGeneratorDataError::NoZipFileSelectedError)
         }
+    }
+    match generator_data {
+        Ok(Ok(data)) => Ok(data),
+
+        Ok(Err(err)) => handle_err(err.into()),
+        Err(err) => handle_err(err),
     }
 }
 

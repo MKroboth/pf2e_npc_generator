@@ -2667,6 +2667,7 @@ dependencies = [
  "rayon",
  "ron",
  "serde",
+ "thiserror",
  "zip",
 ]
 
@@ -2680,6 +2681,7 @@ dependencies = [
  "rhai",
  "ron",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
