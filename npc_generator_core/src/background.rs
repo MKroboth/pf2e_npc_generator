@@ -24,8 +24,8 @@ impl Hash for Background {
 }
 impl Eq for Background {}
 impl NamedElement for Background {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        self.name.clone()
     }
     fn traits(&self) -> &[Trait] {
         &self.traits

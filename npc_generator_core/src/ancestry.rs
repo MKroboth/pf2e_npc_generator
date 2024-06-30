@@ -105,8 +105,8 @@ impl NamedElement for Ancestry {
     fn traits(&self) -> &[Trait] {
         &self.traits
     }
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        self.name.clone()
     }
 }
 

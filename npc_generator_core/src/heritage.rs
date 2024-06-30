@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{NamedElement, Trait, ValidAncestries, WeightMap};
+use crate::{formats::HeritageFormats, NamedElement, Trait, ValidAncestries, WeightMap};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Heritage {
@@ -15,6 +15,8 @@ pub struct Heritage {
     pub additional_eye_colors: WeightMap<String>,
     pub additional_hair_colors: WeightMap<String>,
     pub force_heterochromia: Option<String>,
+    #[serde(default)]
+    pub formats: HeritageFormats,
 }
 
 impl Heritage {
@@ -27,6 +29,7 @@ impl Heritage {
         additional_hair_colors: WeightMap<String>,
         force_heterochromia: Option<&str>,
         prd_reference: Option<&str>,
+        formats: HeritageFormats,
     ) -> Self {
         Self {
             traits,
@@ -37,6 +40,7 @@ impl Heritage {
             additional_hair_colors,
             prd_reference: prd_reference.map(String::from),
             force_heterochromia: force_heterochromia.map(|x| String::from(x)),
+            formats,
         }
     }
 }
@@ -57,7 +61,11 @@ impl NamedElement for Heritage {
     fn traits(&self) -> &[Trait] {
         &self.traits
     }
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        if let Some(ref lineage) = self.lineage {
+            format!("{} ({})", self.name, lineage)
+        } else {
+            self.name.to_string()
+        }
     }
 }

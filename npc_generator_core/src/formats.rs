@@ -44,12 +44,23 @@ impl From<&str> for FormatString {
 pub struct Formats {
     pub full_name: FormatString,
 }
-
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct HeritageFormats {
+    pub lineage_line: FormatString,
+}
 impl Default for Formats {
     fn default() -> Self {
         Self {
             full_name: r#"\first_name surname additional_names -> first_name ++ " " ++ surname"#
                 .into(),
+        }
+    }
+}
+
+impl Default for HeritageFormats {
+    fn default() -> Self {
+        Self {
+            lineage_line: r#"\lineage -> "They are of the " ++ lineage ++ " lineage.""#.into(),
         }
     }
 }
@@ -74,5 +85,20 @@ impl Formats {
         function
             .call(first_name, surname, additional_names)
             .unwrap()
+    }
+}
+
+impl HeritageFormats {
+    pub fn format_lineage_line<'a>(&self, lineage: &'a str) -> String {
+        let vm = gluon::new_vm();
+
+        let (mut function, _) = vm
+            .run_expr::<gluon::vm::api::OwnedFunction<fn(&'a str) -> String>>(
+                "format_lineage_line",
+                &self.lineage_line.0,
+            )
+            .unwrap();
+
+        function.call(lineage).unwrap()
     }
 }

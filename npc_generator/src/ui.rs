@@ -183,7 +183,7 @@ impl eframe::App for UserInterface {
                             match self.data.npc_options.heritage.as_ref() {
                                 None => String::from("Generate"),
                                 Some(None) => String::from("Normal Person"),
-                                Some(Some(x)) => String::from(&x.name),
+                                Some(Some(x)) => String::from(&x.name()),
                             }
                         ))
                         .show_ui(ui, |ui| {
@@ -202,7 +202,7 @@ impl eframe::App for UserInterface {
                                 ui.selectable_value(
                                     &mut self.data.npc_options.heritage,
                                     Some(Some(heritage.0.clone())),
-                                    heritage.0.name.clone(),
+                                    heritage.0.name(),
                                 );
                             }
                         });

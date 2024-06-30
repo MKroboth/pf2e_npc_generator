@@ -67,19 +67,22 @@ fn generate_distribution_preview() -> Result<()> {
             let ancestry = result.ancestry.unwrap();
             let heritage = result.heritage;
             let ancestry_name = ancestry.name();
-            let heritage_name = heritage.as_ref().map(|x| x.name()).unwrap_or("Normal");
+            let heritage_name = heritage
+                .as_ref()
+                .map(|x| x.name())
+                .unwrap_or("Normal".to_string());
             let mut results = results.lock().unwrap();
             let mut heritages = heritages.lock().unwrap();
 
-            if !results.contains_key(ancestry_name) {
+            if !results.contains_key(&ancestry_name) {
                 results.insert(ancestry_name.to_string(), 0);
             }
-            *results.get_mut(ancestry_name).unwrap() += 1;
+            *results.get_mut(&ancestry_name).unwrap() += 1;
 
-            if !heritages.contains_key(heritage_name) {
+            if !heritages.contains_key(&heritage_name) {
                 heritages.insert(heritage_name.to_string(), 0);
             }
-            *heritages.get_mut(heritage_name).unwrap() += 1;
+            *heritages.get_mut(&heritage_name).unwrap() += 1;
         });
         (
             results.into_inner().unwrap(),

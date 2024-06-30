@@ -235,7 +235,7 @@ impl<R: rand::Rng> Generator<R> {
     }
 
     pub fn generate_background(&self, rng: &mut impl Rng) -> Background {
-        let background: HashMap<&str, Background> = HashMap::from_iter(
+        let background: HashMap<String, Background> = HashMap::from_iter(
             self.data
                 .backgrounds
                 .keys()
@@ -289,7 +289,7 @@ impl<R: rand::Rng> Generator<R> {
                 age_range,
                 sex,
                 &ancestry.name,
-                heritage.map(NamedElement::name),
+                heritage.map(NamedElement::name).as_deref(),
                 background.name,
                 None,
             ),
@@ -362,7 +362,7 @@ impl<R: rand::Rng> Generator<R> {
 
 fn generate_size_and_build(
     _rng: &mut impl Rng,
-    formats: &Formats,
+    _formats: &Formats,
     _ancestry: &Ancestry,
     _age: u64,
     _age_range: AgeRange,
@@ -373,14 +373,14 @@ fn generate_size_and_build(
 
 fn generate_flavor_face_line(
     _rng: &mut impl Rng,
-    formats: &Formats,
+    _formats: &Formats,
     _ancestry: &Ancestry,
 ) -> String {
     format!("They have a face.")
 }
 fn generate_flavor_habit_line(
     _rng: &mut impl Rng,
-    formats: &Formats,
+    _formats: &Formats,
     _ancestry: &Ancestry,
 ) -> String {
     format!("")
@@ -540,7 +540,7 @@ fn generate_lineage_line(heritage: Option<&Heritage>, formats: &Formats) -> Opti
         heritage
             .lineage
             .as_ref()
-            .map(|lineage| format!("They are of the {lineage} lineage"))
+            .map(|lineage| heritage.formats.format_lineage_line(lineage))
     } else {
         None
     }
