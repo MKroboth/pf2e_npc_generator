@@ -1,5 +1,7 @@
+use self::formats::Formats;
+
 use super::*;
-use gluon::ThreadExt;
+use log::error;
 use rand::distributions::Distribution;
 use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
@@ -17,6 +19,7 @@ pub struct GeneratorData {
     pub names: HashMap<Trait, HashMap<String, WeightMap<String>>>,
     pub archetypes: Vec<Archetype>,
 }
+
 pub struct Generator<R: rand::Rng> {
     random_number_generator: R,
     pub data: Arc<GeneratorData>,
@@ -190,6 +193,7 @@ impl<R: rand::Rng> Generator<R> {
             ancestry: Some(ancestry.clone()),
             heritage: heritage.clone(),
             flavor: self.generate_flavor(
+                &ancestry.formats.clone(),
                 self.scripts.clone(),
                 &mut flavor_rng,
                 &pre_statblock.skills,
@@ -257,9 +261,10 @@ impl<R: rand::Rng> Generator<R> {
 
     pub fn generate_flavor(
         &self,
+        formats: &Formats,
         generator_scripts: Arc<GeneratorScripts>,
         rng: &mut impl Rng,
-        skills: &[(Skill, i16)],
+        _skills: &[(Skill, i16)],
         _attributes: &AbilityStats,
         name: impl AsRef<str>,
         _class: Option<&str>,
@@ -278,6 +283,7 @@ impl<R: rand::Rng> Generator<R> {
         NpcFlavor {
             description_line: generate_flavor_description_line(
                 generator_scripts,
+                formats,
                 name,
                 age,
                 age_range,
@@ -287,12 +293,16 @@ impl<R: rand::Rng> Generator<R> {
                 background.name,
                 None,
             ),
-            lineage_line: generate_lineage_line(heritage),
-            hair_and_eyes_line: generate_flavor_hair_and_eyes_line(rng, &ancestry, heritage),
-            skin_line: generate_flavor_skin_line(rng, &ancestry, heritage),
-            size_and_build_line: generate_size_and_build(rng, &ancestry, age, age_range, heritage),
-            face_line: generate_flavor_face_line(rng, &ancestry),
-            habit_line: generate_flavor_habit_line(rng, &ancestry),
+            lineage_line: generate_lineage_line(heritage, formats),
+            hair_and_eyes_line: generate_flavor_hair_and_eyes_line(
+                rng, formats, &ancestry, heritage,
+            ),
+            skin_line: generate_flavor_skin_line(rng, formats, &ancestry, heritage),
+            size_and_build_line: generate_size_and_build(
+                rng, formats, &ancestry, age, age_range, heritage,
+            ),
+            face_line: generate_flavor_face_line(rng, formats, &ancestry),
+            habit_line: generate_flavor_habit_line(rng, formats, &ancestry),
         }
     }
 
@@ -326,9 +336,10 @@ impl<R: rand::Rng> Generator<R> {
         let names = if let Some(name) = names.get(name_trait).unwrap().get(sex) {
             name
         } else {
-            // (&format!(
-            // "No names for given sex `{sex}` present on name trait `{}`",
-            // name_trait
+            error!(
+                "No names for given sex `{sex}` present on name trait `{}`",
+                name_trait
+            );
             return String::from("@@NAME_ERROR@@");
         };
         let first_name = {
@@ -343,12 +354,15 @@ impl<R: rand::Rng> Generator<R> {
             return first_name;
         };
 
-        format!("{first_name} {surname}")
+        ancestry
+            .formats
+            .format_full_name(&first_name, &surname, vec![])
     }
 }
 
 fn generate_size_and_build(
     _rng: &mut impl Rng,
+    formats: &Formats,
     _ancestry: &Ancestry,
     _age: u64,
     _age_range: AgeRange,
@@ -357,10 +371,18 @@ fn generate_size_and_build(
     format!("")
 }
 
-fn generate_flavor_face_line(_rng: &mut impl Rng, _ancestry: &Ancestry) -> String {
+fn generate_flavor_face_line(
+    _rng: &mut impl Rng,
+    formats: &Formats,
+    _ancestry: &Ancestry,
+) -> String {
     format!("They have a face.")
 }
-fn generate_flavor_habit_line(_rng: &mut impl Rng, _ancestry: &Ancestry) -> String {
+fn generate_flavor_habit_line(
+    _rng: &mut impl Rng,
+    formats: &Formats,
+    _ancestry: &Ancestry,
+) -> String {
     format!("")
 }
 fn generate_stats(
@@ -513,7 +535,7 @@ fn generate_stats(
     }
 }
 
-fn generate_lineage_line(heritage: Option<&Heritage>) -> Option<String> {
+fn generate_lineage_line(heritage: Option<&Heritage>, formats: &Formats) -> Option<String> {
     if let Some(heritage) = heritage {
         heritage
             .lineage
@@ -525,7 +547,8 @@ fn generate_lineage_line(heritage: Option<&Heritage>) -> Option<String> {
 }
 
 fn generate_flavor_description_line(
-    generator_scripts: Arc<GeneratorScripts>,
+    _generator_scripts: Arc<GeneratorScripts>,
+    formats: &Formats,
     name: impl AsRef<str>,
     age: u64,
     age_range: AgeRange,
@@ -590,6 +613,7 @@ fn generate_flavor_description_line(
 
 fn generate_flavor_hairs(
     rng: &mut impl Rng,
+    formats: &Formats,
     ancestry: &Ancestry,
     _heritage: Option<&Heritage>,
 ) -> String {
@@ -626,6 +650,7 @@ fn generate_flavor_hairs(
 
 fn generate_flavor_eyes(
     rng: &mut impl Rng,
+    formats: &Formats,
     ancestry: &Ancestry,
     heritage: Option<&Heritage>,
 ) -> String {
@@ -683,20 +708,22 @@ fn generate_flavor_eyes(
 
 fn generate_flavor_hair_and_eyes_line(
     mut rng: &mut impl Rng,
+    formats: &Formats,
     ancestry: &Ancestry,
     heritage: Option<&Heritage>,
 ) -> String {
     format!(
         "They have {} and {}.",
-        generate_flavor_hairs(&mut rng, &ancestry, heritage),
-        generate_flavor_eyes(&mut rng, ancestry, heritage)
+        generate_flavor_hairs(&mut rng, formats, &ancestry, heritage),
+        generate_flavor_eyes(&mut rng, formats, ancestry, heritage)
     )
     .into()
 }
 fn generate_flavor_skin_line(
     mut rng: &mut impl Rng,
+    formats: &Formats,
     ancestry: &Ancestry,
-    heritage: Option<&Heritage>,
+    _heritage: Option<&Heritage>,
 ) -> String {
     let skin_texture = {
         let (skin_textures, distribution) = ancestry.possible_skin_texture.split_weights().unwrap();

@@ -47,6 +47,7 @@ mod archetype;
 pub use archetype::*;
 mod npc_options;
 pub use npc_options::*;
+pub mod formats;
 
 #[macro_export]
 macro_rules! traits {

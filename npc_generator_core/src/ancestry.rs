@@ -5,6 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::formats::Formats;
 use crate::{
     AbilityModifications, AgeRange, AgeRanges, Language, Mutation, NamedElement, Sense, Size,
     Trait, WeightMap,
@@ -37,6 +38,8 @@ pub struct Ancestry {
     #[serde(default = "default_skin_substance")]
     pub skin_substance: String,
     pub base_hp: u8,
+    #[serde(default)]
+    pub formats: Formats,
 }
 fn default_hair_substance() -> String {
     String::from("hair")
@@ -68,6 +71,7 @@ impl Ancestry {
         hair_substance: String,
         skin_substance: String,
         base_hp: u8,
+        formats: Formats,
     ) -> Self {
         Self {
             traits,
@@ -92,6 +96,7 @@ impl Ancestry {
             possible_skin_tone,
             possible_skin_texture,
             base_hp,
+            formats,
         }
     }
 }
