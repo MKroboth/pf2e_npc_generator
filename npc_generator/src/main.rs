@@ -9,8 +9,6 @@ use rayon::iter::IntoParallelIterator;
 #[cfg(feature = "rayon")]
 use rayon::iter::ParallelIterator;
 use std::collections::HashMap;
-use std::convert::Infallible;
-use std::env::args;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -21,7 +19,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 use std::{io, usize};
-use thiserror::Error;
 mod config;
 mod ui;
 use anyhow::{anyhow, Context, Result};
