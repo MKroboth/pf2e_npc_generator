@@ -24,6 +24,7 @@ use std::{io, usize};
 use thiserror::Error;
 mod config;
 mod ui;
+use anyhow::{anyhow, Context, Result};
 
 #[cfg(not(feature = "rayon"))]
 fn generate_iterator(range: std::ops::Range<usize>) -> impl Iterator<Item = usize> {
@@ -35,7 +36,7 @@ fn generate_iterator(range: std::ops::Range<usize>) -> rayon::range::Iter<usize>
     range.into_par_iter()
 }
 
-fn generate_distribution_preview() -> Result<(), Box<dyn Error>> {
+fn generate_distribution_preview() -> Result<()> {
     let (generator_data, generator_scripts) = load_generator_data()?;
 
     let sample_size = 2_000_000;
@@ -144,62 +145,45 @@ fn generate_character() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn show_open_zip_dialog() -> Result<Option<PathBuf>, native_dialog::Error> {
-    FileDialog::new()
+fn show_open_zip_dialog() -> Result<Option<PathBuf>> {
+    Ok(FileDialog::new()
         .set_location("~/Desktop")
         .add_filter("Generator Source Data Package", &["zip"])
-        .show_open_single_file()
-}
-#[derive(Error, Debug)]
-enum LoadGeneratorDataFromZipError {
-    #[error("Error while opening the specified file")]
-    IoError(#[from] std::io::Error),
-    #[error("Error while interacting with zip file")]
-    ZipError(#[from] zip::result::ZipError),
-    #[error("Error while deserializing data from ron files")]
-    DeserializationError(#[from] ron::error::SpannedError),
+        .show_open_single_file()?)
 }
 
 fn load_generator_data_from_zip(
     zip_path: impl AsRef<Path>,
-) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), LoadGeneratorDataFromZipError> {
+) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> {
     let file = File::open(zip_path)?;
 
     let mut zip = zip::ZipArchive::new(file)?;
 
-    let generator_data = {
-        let ancestries: WeightMap<Ancestry> = {
-            let mut file = zip.by_name("ancestries.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
-        };
-        let heritages: WeightMap<Heritage> = {
-            let mut file = zip.by_name("heritages.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
-        };
-        let backgrounds: WeightMap<Background> = {
-            let mut file = zip.by_name("backgrounds.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
-        };
-        let names: HashMap<Trait, HashMap<String, WeightMap<String>>> = {
-            let mut file = zip.by_name("names.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
-        };
+    fn read_from_zip<T, R>(zip: &mut zip::ZipArchive<R>, name: &str) -> Result<T>
+    where
+        T: for<'a> serde::Deserialize<'a>,
+        R: io::Seek + io::Read,
+    {
+        let mut file = zip
+            .by_name(name)
+            .with_context(|| format!("Can't read {name} from zip file"))?;
+        let mut data = String::new();
+        file.read_to_string(&mut data)?;
+        Ok(ron::from_str(&data).with_context(|| format!("Can't deserialize {name}"))?)
+    }
 
-        let mut archetypes: Vec<Archetype> = {
-            let mut file = zip.by_name("archetypes.ron")?;
-            let mut data = String::new();
-            file.read_to_string(&mut data)?;
-            ron::from_str(&data)?
+    let generator_data = {
+        let ancestries: WeightMap<Ancestry> = read_from_zip(&mut zip, "ancestries.ron")?;
+        let heritages: WeightMap<Heritage> = read_from_zip(&mut zip, "heritages.ron")?;
+        let backgrounds: WeightMap<Background> = read_from_zip(&mut zip, "backgrounds.ron")?;
+        let names: HashMap<Trait, HashMap<String, WeightMap<String>>> =
+            read_from_zip(&mut zip, "names.ron")?;
+
+        let archetypes: Vec<Archetype> = {
+            let mut archetypes: Vec<Archetype> = read_from_zip(&mut zip, "archetypes.ron")?;
+            archetypes.sort_by_key(|x| x.level);
+            archetypes
         };
-        archetypes.sort_by_key(|x| x.level);
 
         Arc::new(npc_generator_core::generators::GeneratorData {
             ancestries,
@@ -212,63 +196,40 @@ fn load_generator_data_from_zip(
         })
     };
 
-    let generator_scripts = {
-        let build_flavor_description_line = {
-            let mut script = zip.by_name("script/build_flavor_description_line.glu")?;
-            io::read_to_string(&mut script)
-        }?;
-
-        Arc::new(GeneratorScripts {
-            build_flavor_description_line,
-        })
-    };
+    let generator_scripts = { Arc::new(GeneratorScripts {}) };
 
     Ok((generator_data, generator_scripts))
-}
-#[derive(Error, Debug)]
-enum LoadGeneratorDataFromDirectoryError {
-    #[error("Error while opening the specified file")]
-    IoError(#[from] std::io::Error),
-    #[error("Error while interacting with zip file")]
-    ZipError(#[from] zip::result::ZipError),
-    #[error("Error while deserializing data from ron files")]
-    DeserializationError(#[from] ron::error::SpannedError),
 }
 
 fn load_generator_data_from_directory(
     path: impl AsRef<Path>,
-) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), LoadGeneratorDataFromDirectoryError> {
+) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> {
     let generator_data = {
         let mut data: PathBuf = path.as_ref().into();
         data.push("data");
 
-        let ancestries: WeightMap<Ancestry> = {
-            let mut path = data.clone();
-            path.push("ancestries.ron");
-            ron::from_str(&fs::read_to_string(path)?)?
-        };
-        let heritages: WeightMap<Heritage> = {
-            let mut path = data.clone();
-            path.push("heritages.ron");
-            ron::from_str(&fs::read_to_string(path)?)?
-        };
-        let backgrounds: WeightMap<Background> = {
-            let mut path = data.clone();
-            path.push("backgrounds.ron");
-            ron::from_str(&fs::read_to_string(path)?)?
-        };
-        let names: HashMap<Trait, HashMap<String, WeightMap<String>>> = {
-            let mut path = data.clone();
-            path.push("names.ron");
-            ron::from_str(&fs::read_to_string(path)?)?
-        };
+        fn read_from_zip<T>(data: &Path, name: &str) -> Result<T>
+        where
+            T: for<'a> serde::Deserialize<'a>,
+        {
+            let mut path: PathBuf = data.into();
+            path.push(name);
+            let data = fs::read_to_string(&path)
+                .with_context(|| format!("Can't read {name} from {path:?}"))?;
+            Ok(ron::from_str(&data).with_context(|| format!("Can't deserialize {name}"))?)
+        }
 
-        let mut archetypes: Vec<Archetype> = {
-            let mut path = data.clone();
-            path.push("archetypes.ron");
-            ron::from_str(&fs::read_to_string(path)?)?
+        let ancestries: WeightMap<Ancestry> = read_from_zip(&data, "ancestries.ron")?;
+        let heritages: WeightMap<Heritage> = read_from_zip(&data, "heritages.ron")?;
+        let backgrounds: WeightMap<Background> = read_from_zip(&data, "backgrounds.ron")?;
+        let names: HashMap<Trait, HashMap<String, WeightMap<String>>> =
+            read_from_zip(&data, "names.ron")?;
+
+        let archetypes = {
+            let mut archetypes: Vec<Archetype> = read_from_zip(&data, "archetypes.ron")?;
+            archetypes.sort_by_key(|x| x.level);
+            archetypes
         };
-        archetypes.sort_by_key(|x| x.level);
 
         Arc::new(npc_generator_core::generators::GeneratorData {
             ancestries,
@@ -287,56 +248,66 @@ fn load_generator_data_from_directory(
         scripts.push("scripts");
         let scripts = scripts;
 
-        let build_flavor_description_line = {
-            let mut path = scripts.clone();
-            path.push("build_flavor_description_line.glu");
-
-            fs::read_to_string(path)
-        }?;
-
-        Arc::new(GeneratorScripts {
-            build_flavor_description_line,
-        })
+        Arc::new(GeneratorScripts {})
     };
 
     Ok((generator_data, generator_scripts))
 }
 
-#[derive(Error, Debug)]
-enum LoadGeneratorDataError {
-    #[error("Error while loading generator data from directory")]
-    LoadFromDirectoryError(#[from] LoadGeneratorDataFromDirectoryError),
-    #[error("Error while deserializing data from zip file")]
-    DeserializationError(#[from] LoadGeneratorDataFromZipError),
-    #[error("Can't show dialog to select zip file")]
-    ShowFileDialogError(#[from] native_dialog::Error),
-    #[error("Invalid current working directory")]
-    InvalidCurrentWorkingDirectoryError(#[from] std::io::Error),
-    #[error("No zip file selected")]
-    NoZipFileSelectedError,
-}
+fn load_generator_data() -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> {
+    let generator_data = std::env::current_dir().map(load_generator_data_from_directory);
+    fn handle_err() -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> {
+        let persistent_generator_config_path = {
+            if let Some(path) = dirs::data_dir() {
+                let mut path = path;
+                path.push("pf2e_npc_generator");
+                path.push("generator_data");
+                if path.exists() && path.is_dir() {
+                    Some(path)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
 
-fn load_generator_data(
-) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), LoadGeneratorDataError> {
-    let generator_data = std::env::current_dir()
-        .map_err(LoadGeneratorDataError::from)
-        .map(load_generator_data_from_directory)
-        .map_err(LoadGeneratorDataError::from);
-    fn handle_err(
-        err: LoadGeneratorDataError,
-    ) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>), LoadGeneratorDataError> {
-        error!("{}", err);
-        if let Some(file_path) = show_open_zip_dialog()? {
-            Ok(load_generator_data_from_zip(file_path)?)
+        if let Some(path) = persistent_generator_config_path {
+            Ok(load_generator_data_from_directory(path)?)
+        } else if let Some(file_path) = show_open_zip_dialog()? {
+            let data = load_generator_data_from_zip(&file_path)?;
+            if let Some(path) = dirs::data_dir() {
+                let mut path = path;
+                path.push("pf2e_npc_generator");
+                path.push("generator_data");
+                path.push("data");
+                match fs::create_dir_all(&path)
+                    .and_then(|()| Ok(File::open(file_path)?))
+                    .and_then(|file| Ok(zip::ZipArchive::new(file)?))
+                    .and_then(|mut file| Ok(file.extract(path)?))
+                {
+                    Ok(()) => {}
+                    Err(err) => {
+                        error!("Couldn't persist generator data: {}", err);
+                    }
+                }
+            }
+            Ok(data)
         } else {
-            Err(LoadGeneratorDataError::NoZipFileSelectedError)
+            Err(anyhow!("No zip file selected in file dialog"))
         }
     }
     match generator_data {
         Ok(Ok(data)) => Ok(data),
 
-        Ok(Err(err)) => handle_err(err.into()),
-        Err(err) => handle_err(err),
+        Ok(Err(err)) => {
+            error!("{}", err);
+            handle_err()
+        }
+        Err(err) => {
+            error!("{}", err);
+            handle_err()
+        }
     }
 }
 

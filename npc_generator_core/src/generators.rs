@@ -22,9 +22,7 @@ pub struct Generator<R: rand::Rng> {
     pub data: Arc<GeneratorData>,
     pub scripts: Arc<GeneratorScripts>,
 }
-pub struct GeneratorScripts {
-    pub build_flavor_description_line: String,
-}
+pub struct GeneratorScripts {}
 
 impl<R: rand::Rng> Generator<R> {
     pub fn new(
