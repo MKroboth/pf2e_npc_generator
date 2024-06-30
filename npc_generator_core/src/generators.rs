@@ -25,7 +25,9 @@ pub struct Generator<R: rand::Rng> {
     pub data: Arc<GeneratorData>,
     pub scripts: Arc<GeneratorScripts>,
 }
-pub struct GeneratorScripts {}
+pub struct GeneratorScripts {
+    pub default_format_flavor_description_line_script: String,
+}
 
 impl<R: rand::Rng> Generator<R> {
     pub fn new(
@@ -547,7 +549,7 @@ fn generate_lineage_line(heritage: Option<&Heritage>, formats: &Formats) -> Opti
 }
 
 fn generate_flavor_description_line(
-    _generator_scripts: Arc<GeneratorScripts>,
+    generator_scripts: Arc<GeneratorScripts>,
     formats: &Formats,
     name: impl AsRef<str>,
     age: u64,
@@ -578,37 +580,47 @@ fn generate_flavor_description_line(
         format!(" {sex}")
     };
 
-    match age_range {
-        AgeRange::Infant => {
-            if age == 0 {
-                format!("{name} is a{sex} {ancestry_name}{heritage_name} newborn.")
-            } else {
-                format!("{name} is a {age} year old{sex} {ancestry_name}{heritage_name} infant.")
-            }
-        }
-        AgeRange::Child => {
-            format!(
-                "{name} is a {age} year old{sex} {ancestry_name}{heritage_name} child {job_name}."
-            )
-        }
-        AgeRange::Youth => {
-            format!("{name} is a {age} year old{sex} {ancestry_name}{heritage_name} {job_name} in their youths.")
-        }
-        AgeRange::Adult => {
-            format!("{name} is an adult, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}.")
-        }
-        AgeRange::MiddleAged => {
-            format!("{name} is a middle-aged, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}.")
-        }
-        AgeRange::Old => {
-            format!(
-                "{name} is an old, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}."
-            )
-        }
-        AgeRange::Venerable => {
-            format!("{name} is a venerable, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}.")
-        }
-    }
+    formats.format_flavor_description_line(
+        &generator_scripts.default_format_flavor_description_line_script,
+        name,
+        age,
+        age_range,
+        &sex,
+        ancestry_name,
+        &heritage_name,
+        job_name,
+    )
+    // match age_range {
+    //     AgeRange::Infant => {
+    //         if age == 0 {
+    //             format!("{name} is a{sex} {ancestry_name}{heritage_name} newborn.")
+    //         } else {
+    //             format!("{name} is a {age} year old{sex} {ancestry_name}{heritage_name} infant.")
+    //         }
+    //     }
+    //     AgeRange::Child => {
+    //         format!(
+    //             "{name} is a {age} year old{sex} {ancestry_name}{heritage_name} child {job_name}."
+    //         )
+    //     }
+    //     AgeRange::Youth => {
+    //         format!("{name} is a {age} year old{sex} {ancestry_name}{heritage_name} {job_name} in their youths.")
+    //     }
+    //     AgeRange::Adult => {
+    //         format!("{name} is an adult, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}.")
+    //     }
+    //     AgeRange::MiddleAged => {
+    //         format!("{name} is a middle-aged, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}.")
+    //     }
+    //     AgeRange::Old => {
+    //         format!(
+    //             "{name} is an old, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}."
+    //         )
+    //     }
+    //     AgeRange::Venerable => {
+    //         format!("{name} is a venerable, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}.")
+    //     }
+    // }
 }
 
 fn generate_flavor_hairs(

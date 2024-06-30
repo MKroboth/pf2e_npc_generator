@@ -167,8 +167,7 @@ fn load_generator_data_from_zip(
         let mut file = zip
             .by_name(name)
             .with_context(|| format!("Can't read {name} from zip file"))?;
-        let mut data = String::new();
-        file.read_to_string(&mut data)?;
+        let mut data = io::read_to_string(file)?;
         Ok(ron::from_str(&data).with_context(|| format!("Can't deserialize {name}"))?)
     }
 
@@ -196,7 +195,13 @@ fn load_generator_data_from_zip(
         })
     };
 
-    let generator_scripts = { Arc::new(GeneratorScripts {}) };
+    let generator_scripts = {
+        Arc::new(GeneratorScripts {
+            default_format_flavor_description_line_script: io::read_to_string(
+                zip.by_name("scripts/default_format_flavor_description_line.glu")?,
+            )?,
+        })
+    };
 
     Ok((generator_data, generator_scripts))
 }
@@ -248,7 +253,13 @@ fn load_generator_data_from_directory(
         scripts.push("scripts");
         let scripts = scripts;
 
-        Arc::new(GeneratorScripts {})
+        Arc::new(GeneratorScripts {
+            default_format_flavor_description_line_script: io::read_to_string({
+                let mut path = scripts.clone();
+                path.push("default_format_flavor_description_line.glu");
+                File::open(path)?
+            })?,
+        })
     };
 
     Ok((generator_data, generator_scripts))

@@ -197,6 +197,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da"
 
 [[package]]
+name = "anymap"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33954243bd79057c2de7338850b85983a44588021f8a5fee574a8888c6de4344"
+
+[[package]]
 name = "arbitrary"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -823,6 +829,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3362992a0d9f1dd7c3d0e89e0ab2bb540b7a95fea8cd798090e758fda2899b5e"
 dependencies = [
  "codespan-reporting",
+ "serde",
 ]
 
 [[package]]
@@ -831,6 +838,7 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
+ "serde",
  "termcolor",
  "unicode-width",
 ]
@@ -1696,6 +1704,9 @@ dependencies = [
  "rand",
  "rand_xorshift",
  "regex",
+ "serde",
+ "serde_derive_state",
+ "serde_state",
  "tokio",
  "walkdir",
 ]
@@ -1737,6 +1748,7 @@ version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8114e37d48eaea520d14913051feeb72862b856dd8feab00ab68bb8b2fd0d4e"
 dependencies = [
+ "anymap",
  "bitflags 1.3.2",
  "codespan",
  "codespan-reporting",
@@ -1750,6 +1762,10 @@ dependencies = [
  "ordered-float",
  "pretty",
  "quick-error",
+ "serde",
+ "serde_derive",
+ "serde_derive_state",
+ "serde_state",
  "smallvec",
  "typed-arena",
  "vec_map",
@@ -1843,6 +1859,11 @@ dependencies = [
  "petgraph",
  "pretty",
  "quick-error",
+ "serde",
+ "serde_derive",
+ "serde_derive_state",
+ "serde_json",
+ "serde_state",
  "slab",
  "smallvec",
  "typed-arena",
@@ -2289,6 +2310,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "itoa"
+version = "1.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
+
+[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2375,6 +2402,12 @@ checksum = "d3c48237b9604c5a4702de6b824e02006c3214327564636aef27c1028a8fa0ed"
 dependencies = [
  "regex",
 ]
+
+[[package]]
+name = "lazy_static"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
@@ -2684,6 +2717,7 @@ name = "npc_generator_core"
 version = "0.1.0"
 dependencies = [
  "gluon",
+ "lazy_static",
  "log",
  "rand",
  "ron",
@@ -3458,6 +3492,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
 
 [[package]]
+name = "ryu"
+version = "1.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3512,6 +3552,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_derive_state"
+version = "0.4.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bda1ea9a4f7c5304e85a1d878457087121ee7be0bef4a3315c14827325e8b12"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.117"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "455182ea6142b14f93f4bc5320a2b31c1f266b66a4a5c858b013302a5d8cbfc3"
+dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
+]
+
+[[package]]
 name = "serde_repr"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3520,6 +3582,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.66",
+]
+
+[[package]]
+name = "serde_state"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "740753f904603d9f3b7130b13125be3a470aca9e6616da18cb96d9291bd6a72a"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

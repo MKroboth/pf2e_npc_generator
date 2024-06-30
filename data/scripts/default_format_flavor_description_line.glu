@@ -1,0 +1,12 @@
+let { AgeRange } = import! "npc_generator/core.glu"
+\ name age age_range sex ancestry_name heritage_name job_name ->
+    match age_range with
+    | Infant ->
+        if age == 0 then (name ++ " is a" ++ sex ++ " " ++ ancestry_name ++ heritage_name ++ " newborn.")
+                    else (name ++ " is a " ++ (show age) ++ " year old" ++ sex ++ " " ++ ancestry_name ++ heritage_name ++ " infant.")
+    | Child -> (name ++ " is a " ++ (show age) ++ " year old" ++ sex ++ " " ++ ancestry_name ++ heritage_name ++ " child " ++ job_name ++ "." )
+    | Youth -> (name ++ " is a " ++ (show age) ++ " year old" ++ sex ++ " " ++ ancestry_name ++ heritage_name ++ " " ++ job_name ++ " in their youths." )
+    | Adult ->  (name ++ " is an adult " ++ (show age) ++ " year old" ++ sex ++ " " ++ ancestry_name ++ heritage_name ++ " " ++ job_name ++ "." )
+    | MiddleAged -> (name ++ " is a middle-aged, " ++ (show age) ++ " year old" ++ sex ++ " " ++ ancestry_name ++ heritage_name ++ " " ++ job_name ++ "." )
+    | Old -> (name ++ " is an old " ++ (show age) ++ " year old" ++ sex ++ " " ++ ancestry_name ++ heritage_name ++ " " ++ job_name ++ "." )
+    | Venerable -> (name ++ " is a venerable " ++ (show age) ++ " year old" ++ sex ++ " " ++ ancestry_name ++ heritage_name ++ " " ++ job_name ++ "." )

@@ -1,7 +1,12 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    sync::{Arc, Mutex},
+};
 
 use gluon::{vm::api::FunctionRef, vm::primitives, ThreadExt};
 use serde::{Deserialize, Serialize};
+
+use crate::AgeRange;
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Clone)]
 pub struct FormatString(String);
@@ -65,6 +70,20 @@ impl Default for HeritageFormats {
     }
 }
 
+use lazy_static::lazy_static;
+lazy_static! {
+    static ref gluon_vm: Arc<Mutex<gluon::RootedThread>> = {
+        let vm = gluon::new_vm();
+
+        let source = gluon::vm::api::typ::make_source::<AgeRange>(&vm).unwrap();
+
+        vm.load_script("npc_generator.core", &source).unwrap();
+        Arc::new(Mutex::new(vm))
+    };
+}
+fn create_format_vm() -> Arc<Mutex<gluon::RootedThread>> {
+    gluon_vm.clone()
+}
 impl Formats {
     pub fn format_full_name<'a>(
         &self,
@@ -72,13 +91,11 @@ impl Formats {
         surname: &'a str,
         additional_names: Vec<&'a str>,
     ) -> String {
-        let vm = gluon::new_vm();
-
-        let (mut function, _) = vm
+        let vm = create_format_vm();
+        let (mut function, _) = vm.lock().unwrap()
             .run_expr::<gluon::vm::api::OwnedFunction<fn(&'a str, &'a str, Vec<&'a str>) -> String>>(
-                "format_full_name",
+                "formatter",
                 &self.full_name.0
-                //r#"\first_name surname additional_names -> first_name ++ " " ++ surname"#,
             )
             .unwrap();
 
@@ -86,15 +103,51 @@ impl Formats {
             .call(first_name, surname, additional_names)
             .unwrap()
     }
+
+    pub fn format_flavor_description_line<'a>(
+        &self,
+        default: &str,
+        name: &'a str,
+        age: u64,
+        age_range: crate::AgeRange,
+        sex: &'a str,
+        ancestry_name: &'a str,
+        heritage_name: &'a str,
+        job_name: &'a str,
+    ) -> String {
+        let vm = create_format_vm();
+
+        let (mut function, _) = vm
+            .lock()
+            .unwrap()
+            .run_expr::<gluon::vm::api::OwnedFunction<
+                fn(&'a str, u64, crate::AgeRange, &'a str, &'a str, &'a str, &'a str) -> String,
+            >>("formatter", default)
+            .unwrap();
+
+        function
+            .call(
+                name,
+                age,
+                age_range,
+                sex,
+                ancestry_name,
+                heritage_name,
+                job_name,
+            )
+            .unwrap()
+    }
 }
 
 impl HeritageFormats {
     pub fn format_lineage_line<'a>(&self, lineage: &'a str) -> String {
-        let vm = gluon::new_vm();
+        let vm = create_format_vm();
 
         let (mut function, _) = vm
+            .lock()
+            .unwrap()
             .run_expr::<gluon::vm::api::OwnedFunction<fn(&'a str) -> String>>(
-                "format_lineage_line",
+                "formatter",
                 &self.lineage_line.0,
             )
             .unwrap();

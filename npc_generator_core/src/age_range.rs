@@ -1,6 +1,10 @@
-use std::{fmt::Display, ops::Range};
-
+use gluon::{
+    base::types::ArcType,
+    vm::thread::{ActiveThread, Trace},
+    Thread, ThreadExt,
+};
 use serde::{Deserialize, Serialize};
+use std::{fmt::Display, ops::Range};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AgeRanges {
@@ -24,6 +28,20 @@ impl AgeRanges {
             AgeRange::Old => self.old..self.venerable,
             AgeRange::Venerable => self.venerable..self.lifespan + 1,
         }
+    }
+}
+impl gluon::vm::api::VmType for AgeRange {
+    type Type = Self;
+    fn make_type(thread: &Thread) -> ArcType {
+        thread
+            .find_type_info("npc_generator.core.AgeRange")
+            .unwrap()
+            .into_type()
+    }
+}
+impl<'vm, 'value> gluon::vm::api::Pushable<'vm> for AgeRange {
+    fn vm_push(self, context: &mut ActiveThread<'vm>) -> gluon::vm::Result<()> {
+        gluon::vm::api::ser::Ser(self).vm_push(context)
     }
 }
 
