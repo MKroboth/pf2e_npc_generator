@@ -12,6 +12,7 @@ log = "0.4.21"
 rand = "0.8.5"
 serde = { version = "1.0.203", features = ["std", "derive", "alloc", "rc"] }
 thiserror = "1.0.61"
+tokio = { version = "1.38.0", features = ["rt", "tokio-macros", "rt-multi-thread", "macros"] }
 
 [dev-dependencies]
 ron = "0.8.1"

@@ -1,6 +1,8 @@
 use std::{
+    cell::{Cell, RefCell},
     fmt::Display,
     sync::{Arc, Mutex},
+    thread::LocalKey,
 };
 
 use gluon::{vm::api::FunctionRef, vm::primitives, ThreadExt};
@@ -70,29 +72,29 @@ impl Default for HeritageFormats {
     }
 }
 
-use lazy_static::lazy_static;
-lazy_static! {
-    static ref gluon_vm: Arc<Mutex<gluon::RootedThread>> = {
+thread_local! {
+    static GLUON_VM: RefCell<gluon::RootedThread> = {
         let vm = gluon::new_vm();
 
         let source = gluon::vm::api::typ::make_source::<AgeRange>(&vm).unwrap();
 
         vm.load_script("npc_generator.core", &source).unwrap();
-        Arc::new(Mutex::new(vm))
+        RefCell::new(vm)
     };
 }
-fn create_format_vm() -> Arc<Mutex<gluon::RootedThread>> {
-    gluon_vm.clone()
+
+fn create_format_vm() -> &'static LocalKey<RefCell<gluon::RootedThread>> {
+    &GLUON_VM
 }
 impl Formats {
-    pub fn format_full_name<'a>(
+    pub async fn format_full_name<'a>(
         &self,
         first_name: &'a str,
         surname: &'a str,
         additional_names: Vec<&'a str>,
     ) -> String {
-        let vm = create_format_vm();
-        let (mut function, _) = vm.lock().unwrap()
+        let mut function = create_format_vm().with(|vm| {
+        let (function, _) = vm.borrow()
             .run_expr::<gluon::vm::api::OwnedFunction<fn(&'a str, &'a str, Vec<&'a str>) -> String>>(
                 "formatter",
                 &self.full_name.0
@@ -100,11 +102,15 @@ impl Formats {
             .unwrap();
 
         function
-            .call(first_name, surname, additional_names)
+        });
+
+        function
+            .call_async(first_name, surname, additional_names)
+            .await
             .unwrap()
     }
 
-    pub fn format_flavor_description_line<'a>(
+    pub async fn format_flavor_description_line<'a>(
         &self,
         default: &str,
         name: &'a str,
@@ -115,18 +121,18 @@ impl Formats {
         heritage_name: &'a str,
         job_name: &'a str,
     ) -> String {
-        let vm = create_format_vm();
-
-        let (mut function, _) = vm
-            .lock()
-            .unwrap()
-            .run_expr::<gluon::vm::api::OwnedFunction<
-                fn(&'a str, u64, crate::AgeRange, &'a str, &'a str, &'a str, &'a str) -> String,
-            >>("formatter", default)
-            .unwrap();
+        let mut function = create_format_vm().with(|vm| {
+            let (function, _) = vm
+                .borrow()
+                .run_expr::<gluon::vm::api::OwnedFunction<
+                    fn(&'a str, u64, crate::AgeRange, &'a str, &'a str, &'a str, &'a str) -> String,
+                >>("formatter", default)
+                .unwrap();
+            function
+        });
 
         function
-            .call(
+            .call_async(
                 name,
                 age,
                 age_range,
@@ -135,23 +141,24 @@ impl Formats {
                 heritage_name,
                 job_name,
             )
+            .await
             .unwrap()
     }
 }
 
 impl HeritageFormats {
-    pub fn format_lineage_line<'a>(&self, lineage: &'a str) -> String {
-        let vm = create_format_vm();
+    pub async fn format_lineage_line<'a>(&self, lineage: &'a str) -> String {
+        let mut function = create_format_vm().with(|vm| {
+            let (function, _) = vm
+                .borrow()
+                .run_expr::<gluon::vm::api::OwnedFunction<fn(&'a str) -> String>>(
+                    "formatter",
+                    &self.lineage_line.0,
+                )
+                .unwrap();
 
-        let (mut function, _) = vm
-            .lock()
-            .unwrap()
-            .run_expr::<gluon::vm::api::OwnedFunction<fn(&'a str) -> String>>(
-                "formatter",
-                &self.lineage_line.0,
-            )
-            .unwrap();
-
-        function.call(lineage).unwrap()
+            function
+        });
+        function.call_async(lineage).await.unwrap()
     }
 }

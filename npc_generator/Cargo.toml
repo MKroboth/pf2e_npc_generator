@@ -1,6 +1,6 @@
 [features]
 default = []
-rayon = ["dep:rayon"]
+rayon = ["dep:rayon", "indicatif/rayon"]
 
 [package]
 name = "npc_generator"
@@ -14,6 +14,7 @@ anyhow = "1.0.86"
 dirs = "5.0.1"
 eframe = { version = "0.27.2", features = ["serde", "glow"] }
 egui = "0.27.2"
+indicatif = "0.17.8"
 log = "0.4.21"
 native-dialog = "0.7.0"
 npc_generator_core = {path = "../npc_generator_core" }

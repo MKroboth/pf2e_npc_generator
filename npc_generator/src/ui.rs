@@ -4,11 +4,11 @@ use npc_generator_core::{
     generators::{Generator, GeneratorData, GeneratorScripts},
     NamedElement, NpcOptions, Statblock,
 };
-use rand::rngs::ThreadRng;
+use rand::{rngs::ThreadRng, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 pub struct UserInterface {
-    generator: Generator<ThreadRng>,
+    generator: Generator<rand::rngs::StdRng>,
     data: UIData,
     resulting_statblock: Option<Statblock>,
 }
@@ -60,8 +60,12 @@ impl UserInterface {
 
         UserInterface {
             data,
-            generator: Generator::new(ThreadRng::default(), generator_data, generator_scripts)
-                .unwrap(),
+            generator: Generator::new(
+                rand::rngs::StdRng::from_rng(rand::thread_rng()).unwrap(),
+                generator_data,
+                generator_scripts,
+            )
+            .unwrap(),
             resulting_statblock: Default::default(),
         }
     }

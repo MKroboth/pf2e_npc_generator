@@ -8,6 +8,7 @@ use rand::{rngs, Rng, SeedableRng};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
+use tokio;
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct GeneratorData {
@@ -20,7 +21,7 @@ pub struct GeneratorData {
     pub archetypes: Vec<Archetype>,
 }
 
-pub struct Generator<R: rand::Rng> {
+pub struct Generator<R: rand::Rng + Send + Sync> {
     random_number_generator: R,
     pub data: Arc<GeneratorData>,
     pub scripts: Arc<GeneratorScripts>,
@@ -29,7 +30,7 @@ pub struct GeneratorScripts {
     pub default_format_flavor_description_line_script: String,
 }
 
-impl<R: rand::Rng> Generator<R> {
+impl<R: rand::Rng + Send + Sync> Generator<R> {
     pub fn new(
         rng: R,
         data: Arc<GeneratorData>,
@@ -42,7 +43,7 @@ impl<R: rand::Rng> Generator<R> {
         })
     }
 
-    fn generate_age<'a>(
+    async fn generate_age<'a>(
         &self,
         rng: &mut impl Rng,
         ancestry: &'a Ancestry,
@@ -57,7 +58,7 @@ impl<R: rand::Rng> Generator<R> {
         (age_range, valid_ages.choose(rng).unwrap())
     }
 
-    fn generate_ancestry(
+    async fn generate_ancestry(
         &self,
         rng: &mut impl Rng,
         ancestry_weights: Option<&WeightMap<String>>,
@@ -76,38 +77,41 @@ impl<R: rand::Rng> Generator<R> {
         ancestry
     }
 
-    pub fn generate(&mut self, options: &NpcOptions) -> Statblock {
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn generate(&mut self, options: &NpcOptions) -> Statblock {
         let ancestry_weights = options.ancestry_weights.as_ref();
 
-        let ancestry: Ancestry = {
+        let ancestry = {
             let mut ancestry_rng =
                 rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
-
-            options
-                .ancestry
-                .clone()
-                .unwrap_or_else(|| self.generate_ancestry(&mut ancestry_rng, ancestry_weights))
-                .clone()
+            match options.ancestry.clone() {
+                Some(x) => x,
+                None => {
+                    self.generate_ancestry(&mut ancestry_rng, ancestry_weights)
+                        .await
+                }
+            }
+            .clone()
         };
 
-        let heritage: Option<Heritage> = {
+        let heritage = {
             let mut heritage_rng =
                 rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
 
-            options
-                .heritage
-                .clone()
-                .unwrap_or_else(|| self.generate_heritage(&mut heritage_rng))
+            match options.heritage.clone() {
+                Some(x) => x,
+                None => self.generate_heritage(&mut heritage_rng).await,
+            }
         };
 
         let background = {
             let mut background_rng =
                 rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
 
-            options
-                .background
-                .clone()
-                .unwrap_or_else(|| self.generate_background(&mut background_rng))
+            match options.background.clone() {
+                Some(x) => x,
+                None => self.generate_background(&mut background_rng).await,
+            }
         };
 
         let sex = options
@@ -127,8 +131,8 @@ impl<R: rand::Rng> Generator<R> {
         let (age_range, age) = {
             let mut age_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
             self.generate_age(&mut age_rng, &ancestry, options.age_range.as_ref())
+                .await
         };
-
         let mut traits: HashSet<Trait> = HashSet::new();
 
         traits.extend(ancestry.traits().into_iter().map(|x| x.clone()));
@@ -144,6 +148,7 @@ impl<R: rand::Rng> Generator<R> {
                 let mut names_rng =
                     rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
                 self.generate_name(&traits, &mut names_rng, &ancestry, &self.data.names, &sex)
+                    .await
             },
             sex,
             ..Default::default()
@@ -178,6 +183,7 @@ impl<R: rand::Rng> Generator<R> {
             )
         } else {
             let mut stats_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+
             (
                 background.clone(),
                 generate_stats(
@@ -194,32 +200,34 @@ impl<R: rand::Rng> Generator<R> {
         Statblock {
             ancestry: Some(ancestry.clone()),
             heritage: heritage.clone(),
-            flavor: self.generate_flavor(
-                &ancestry.formats.clone(),
-                self.scripts.clone(),
-                &mut flavor_rng,
-                &pre_statblock.skills,
-                &pre_statblock.attributes,
-                &pre_statblock.name,
-                None, // class not yet supported
-                pre_statblock.level,
-                pre_statblock.age,
-                pre_statblock.age_range,
-                pre_statblock.perception,
-                pre_statblock.fortitude_save,
-                pre_statblock.reflex_save,
-                pre_statblock.will_save,
-                ancestry,
-                heritage.as_ref(),
-                background.clone(),
-                &pre_statblock.sex,
-            ),
+            flavor: self
+                .generate_flavor(
+                    &ancestry.formats.clone(),
+                    self.scripts.clone(),
+                    &mut flavor_rng,
+                    &pre_statblock.skills,
+                    &pre_statblock.attributes,
+                    &pre_statblock.name,
+                    None, // class not yet supported
+                    pre_statblock.level,
+                    pre_statblock.age,
+                    pre_statblock.age_range,
+                    pre_statblock.perception,
+                    pre_statblock.fortitude_save,
+                    pre_statblock.reflex_save,
+                    pre_statblock.will_save,
+                    ancestry,
+                    heritage.as_ref(),
+                    background.clone(),
+                    &pre_statblock.sex,
+                )
+                .await,
             class: background.name,
             ..pre_statblock
         }
     }
 
-    pub fn generate_heritage(&self, rng: &mut impl Rng) -> Option<Heritage> {
+    pub async fn generate_heritage(&self, rng: &mut impl Rng) -> Option<Heritage> {
         if rng
             .sample(rand::distributions::Bernoulli::new(self.data.normal_heritage_weight).unwrap())
         {
@@ -236,7 +244,7 @@ impl<R: rand::Rng> Generator<R> {
         }
     }
 
-    pub fn generate_background(&self, rng: &mut impl Rng) -> Background {
+    pub async fn generate_background(&self, rng: &mut impl Rng) -> Background {
         let background: HashMap<String, Background> = HashMap::from_iter(
             self.data
                 .backgrounds
@@ -261,7 +269,7 @@ impl<R: rand::Rng> Generator<R> {
         /* } */
     }
 
-    pub fn generate_flavor(
+    pub async fn generate_flavor(
         &self,
         formats: &Formats,
         generator_scripts: Arc<GeneratorScripts>,
@@ -294,8 +302,9 @@ impl<R: rand::Rng> Generator<R> {
                 heritage.map(NamedElement::name).as_deref(),
                 background.name,
                 None,
-            ),
-            lineage_line: generate_lineage_line(heritage, formats),
+            )
+            .await,
+            lineage_line: generate_lineage_line(heritage, formats).await,
             hair_and_eyes_line: generate_flavor_hair_and_eyes_line(
                 rng, formats, &ancestry, heritage,
             ),
@@ -313,7 +322,7 @@ impl<R: rand::Rng> Generator<R> {
         String::from_str(sexes.choose(random_number_generator).unwrap()).unwrap()
     }
 
-    fn generate_name(
+    async fn generate_name(
         &self,
         traits: &[Trait],
         name_rng: &mut impl Rng,
@@ -359,6 +368,7 @@ impl<R: rand::Rng> Generator<R> {
         ancestry
             .formats
             .format_full_name(&first_name, &surname, vec![])
+            .await
     }
 }
 
@@ -537,18 +547,22 @@ fn generate_stats(
     }
 }
 
-fn generate_lineage_line(heritage: Option<&Heritage>, formats: &Formats) -> Option<String> {
+async fn generate_lineage_line(heritage: Option<&Heritage>, formats: &Formats) -> Option<String> {
     if let Some(heritage) = heritage {
-        heritage
+        match heritage
             .lineage
             .as_ref()
             .map(|lineage| heritage.formats.format_lineage_line(lineage))
+        {
+            Some(x) => Some(x.await),
+            None => None,
+        }
     } else {
         None
     }
 }
 
-fn generate_flavor_description_line(
+async fn generate_flavor_description_line(
     generator_scripts: Arc<GeneratorScripts>,
     formats: &Formats,
     name: impl AsRef<str>,
@@ -580,16 +594,18 @@ fn generate_flavor_description_line(
         format!(" {sex}")
     };
 
-    formats.format_flavor_description_line(
-        &generator_scripts.default_format_flavor_description_line_script,
-        name,
-        age,
-        age_range,
-        &sex,
-        ancestry_name,
-        &heritage_name,
-        job_name,
-    )
+    formats
+        .format_flavor_description_line(
+            &generator_scripts.default_format_flavor_description_line_script,
+            name,
+            age,
+            age_range,
+            &sex,
+            ancestry_name,
+            &heritage_name,
+            job_name,
+        )
+        .await
     // match age_range {
     //     AgeRange::Infant => {
     //         if age == 0 {

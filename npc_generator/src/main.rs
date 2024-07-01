@@ -1,9 +1,13 @@
 use egui;
+use indicatif::{ProgressIterator, ProgressStyle};
 use log::error;
 use native_dialog::FileDialog;
 use npc_generator_core::generators::{GeneratorData, GeneratorScripts};
 use npc_generator_core::{generators::Generator, *};
 
+#[cfg(feature = "rayon")]
+use indicatif::ParallelProgressIterator;
+use rand::SeedableRng;
 #[cfg(feature = "rayon")]
 use rayon::iter::IntoParallelIterator;
 #[cfg(feature = "rayon")]
@@ -33,10 +37,9 @@ fn generate_iterator(range: std::ops::Range<usize>) -> rayon::range::Iter<usize>
     range.into_par_iter()
 }
 
-fn generate_distribution_preview() -> Result<()> {
+fn generate_distribution_preview(sample_size: u64) -> Result<()> {
     let (generator_data, generator_scripts) = load_generator_data()?;
 
-    let sample_size = 2_000_000;
     let (results, heritages, elapsed) = {
         let results: HashMap<String, usize> = HashMap::new();
         let heritages: HashMap<String, usize> = HashMap::new();
@@ -47,43 +50,52 @@ fn generate_distribution_preview() -> Result<()> {
 
         use std::time::Instant;
         let now = Instant::now();
-        generate_iterator(0..sample_size).for_each(|i| {
-            let mut generator = Generator::new(
-                rand::thread_rng(),
-                generator_data.clone(),
-                generator_scripts.clone(),
-            )
-            .unwrap();
-            let percent = (100.0 / sample_size as f64) * i as f64;
-            if percent as u8 as f64 == percent {
-                print!("+");
-                io::stdout().flush().unwrap();
-            }
 
-            let npc_options = NpcOptions {
-                ..Default::default()
-            };
-            let result = generator.generate(&npc_options);
-            let ancestry = result.ancestry.unwrap();
-            let heritage = result.heritage;
-            let ancestry_name = ancestry.name();
-            let heritage_name = heritage
-                .as_ref()
-                .map(|x| x.name())
-                .unwrap_or("Normal".to_string());
-            let mut results = results.lock().unwrap();
-            let mut heritages = heritages.lock().unwrap();
+        let pb = indicatif::ProgressBar::new(sample_size);
+        pb.set_style(
+        ProgressStyle::with_template(
+            "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] ({pos}/{len}, ETA {eta})",
+        ).unwrap(),);
+        let sample_size = sample_size as usize;
 
-            if !results.contains_key(&ancestry_name) {
-                results.insert(ancestry_name.to_string(), 0);
-            }
-            *results.get_mut(&ancestry_name).unwrap() += 1;
+        generate_iterator(0..sample_size)
+            .progress_with(pb)
+            .map(|_| {
+                let thread_rng = rand::thread_rng();
 
-            if !heritages.contains_key(&heritage_name) {
-                heritages.insert(heritage_name.to_string(), 0);
-            }
-            *heritages.get_mut(&heritage_name).unwrap() += 1;
-        });
+                Generator::new(
+                    rand::rngs::StdRng::from_rng(thread_rng).unwrap(),
+                    generator_data.clone(),
+                    generator_scripts.clone(),
+                )
+                .unwrap()
+            })
+            .for_each(|mut generator| {
+                let npc_options = NpcOptions {
+                    ..Default::default()
+                };
+                let result = generator.generate(&npc_options);
+                let ancestry = result.ancestry.unwrap();
+                let heritage = result.heritage;
+                let ancestry_name = ancestry.name();
+                let heritage_name = heritage
+                    .as_ref()
+                    .map(|x| x.name())
+                    .unwrap_or("Normal".to_string());
+                let mut results = results.lock().unwrap();
+                let mut heritages = heritages.lock().unwrap();
+
+                if !results.contains_key(&ancestry_name) {
+                    results.insert(ancestry_name.to_string(), 0);
+                }
+                *results.get_mut(&ancestry_name).unwrap() += 1;
+
+                if !heritages.contains_key(&heritage_name) {
+                    heritages.insert(heritage_name.to_string(), 0);
+                }
+                *heritages.get_mut(&heritage_name).unwrap() += 1;
+            });
+
         (
             results.into_inner().unwrap(),
             heritages.into_inner().unwrap(),
@@ -327,7 +339,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() == 2 {
         match args[1].as_str() {
-            "-g" => generate_distribution_preview()?,
+            "-g" => {
+                let sample_size = 2_000_000;
+                generate_distribution_preview(sample_size)?;
+            }
             _ => println!("Unknown args, try -g or -d"),
         };
         Ok(())
