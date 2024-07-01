@@ -306,7 +306,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
                 age_range,
                 sex,
                 &ancestry.name,
-                heritage.map(NamedElement::name).as_deref(),
+                heritage.map(|x| x.name.clone()).as_deref(),
                 background.name,
                 None,
             )
