@@ -147,8 +147,12 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
             name: {
                 let mut names_rng =
                     rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
-                self.generate_name(&traits, &mut names_rng, &ancestry, &self.data.names, &sex)
-                    .await
+                if options.enable_flavor_text {
+                    self.generate_name(&traits, &mut names_rng, &ancestry, &self.data.names, &sex)
+                        .await
+                } else {
+                    String::default()
+                }
             },
             sex,
             ..Default::default()
@@ -200,8 +204,8 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         Statblock {
             ancestry: Some(ancestry.clone()),
             heritage: heritage.clone(),
-            flavor: self
-                .generate_flavor(
+            flavor: if options.enable_flavor_text {
+                self.generate_flavor(
                     &ancestry.formats.clone(),
                     self.scripts.clone(),
                     &mut flavor_rng,
@@ -221,7 +225,10 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
                     background.clone(),
                     &pre_statblock.sex,
                 )
-                .await,
+                .await
+            } else {
+                Default::default()
+            },
             class: background.name,
             ..pre_statblock
         }

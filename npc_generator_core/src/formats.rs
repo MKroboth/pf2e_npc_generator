@@ -1,11 +1,6 @@
-use std::{
-    cell::{Cell, RefCell},
-    fmt::Display,
-    sync::{Arc, Mutex},
-    thread::LocalKey,
-};
+use std::{cell::RefCell, fmt::Display, thread::LocalKey};
 
-use gluon::{vm::api::FunctionRef, vm::primitives, ThreadExt};
+use gluon::ThreadExt;
 use serde::{Deserialize, Serialize};
 
 use crate::AgeRange;
@@ -86,6 +81,7 @@ thread_local! {
 fn create_format_vm() -> &'static LocalKey<RefCell<gluon::RootedThread>> {
     &GLUON_VM
 }
+
 impl Formats {
     pub async fn format_full_name<'a>(
         &self,
@@ -130,7 +126,6 @@ impl Formats {
                 .unwrap();
             function
         });
-
         function
             .call_async(
                 name,

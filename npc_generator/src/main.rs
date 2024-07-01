@@ -1,12 +1,12 @@
+use clap::{Parser, ValueEnum};
 use egui;
+#[cfg(feature = "rayon")]
+use indicatif::ParallelProgressIterator;
 use indicatif::{ProgressIterator, ProgressStyle};
-use log::error;
+use log::{error, info};
 use native_dialog::FileDialog;
 use npc_generator_core::generators::{GeneratorData, GeneratorScripts};
 use npc_generator_core::{generators::Generator, *};
-
-#[cfg(feature = "rayon")]
-use indicatif::ParallelProgressIterator;
 use rand::SeedableRng;
 #[cfg(feature = "rayon")]
 use rayon::iter::IntoParallelIterator;
@@ -72,6 +72,7 @@ fn generate_distribution_preview(sample_size: u64) -> Result<()> {
             })
             .for_each(|mut generator| {
                 let npc_options = NpcOptions {
+                    enable_flavor_text: false,
                     ..Default::default()
                 };
                 let result = generator.generate(&npc_options);
@@ -80,7 +81,7 @@ fn generate_distribution_preview(sample_size: u64) -> Result<()> {
                 let ancestry_name = ancestry.name();
                 let heritage_name = heritage
                     .as_ref()
-                    .map(|x| x.name())
+                    .map(|x| x.name.clone())
                     .unwrap_or("Normal".to_string());
                 let mut results = results.lock().unwrap();
                 let mut heritages = heritages.lock().unwrap();
@@ -219,31 +220,34 @@ fn load_generator_data_from_zip(
 }
 
 fn load_generator_data_from_directory(
-    path: impl AsRef<Path>,
+    base_path: impl AsRef<Path>,
 ) -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> {
+    let base_path = base_path.as_ref();
+    info!("Loading generator data from {base_path:?}");
     let generator_data = {
-        let mut data: PathBuf = path.as_ref().into();
+        let mut data: PathBuf = base_path.into();
         data.push("data");
 
-        fn read_from_zip<T>(data: &Path, name: &str) -> Result<T>
+        fn read_file<T>(data: &Path, name: &str) -> Result<T>
         where
             T: for<'a> serde::Deserialize<'a>,
         {
             let mut path: PathBuf = data.into();
             path.push(name);
+            info!("Trying to read {data:?}");
             let data = fs::read_to_string(&path)
                 .with_context(|| format!("Can't read {name} from {path:?}"))?;
             Ok(ron::from_str(&data).with_context(|| format!("Can't deserialize {name}"))?)
         }
 
-        let ancestries: WeightMap<Ancestry> = read_from_zip(&data, "ancestries.ron")?;
-        let heritages: WeightMap<Heritage> = read_from_zip(&data, "heritages.ron")?;
-        let backgrounds: WeightMap<Background> = read_from_zip(&data, "backgrounds.ron")?;
+        let ancestries: WeightMap<Ancestry> = read_file(&data, "ancestries.ron")?;
+        let heritages: WeightMap<Heritage> = read_file(&data, "heritages.ron")?;
+        let backgrounds: WeightMap<Background> = read_file(&data, "backgrounds.ron")?;
         let names: HashMap<Trait, HashMap<String, WeightMap<String>>> =
-            read_from_zip(&data, "names.ron")?;
+            read_file(&data, "names.ron")?;
 
         let archetypes = {
-            let mut archetypes: Vec<Archetype> = read_from_zip(&data, "archetypes.ron")?;
+            let mut archetypes: Vec<Archetype> = read_file(&data, "archetypes.ron")?;
             archetypes.sort_by_key(|x| x.level);
             archetypes
         };
@@ -259,8 +263,10 @@ fn load_generator_data_from_directory(
         })
     };
 
+    info!("Reading scripts...");
+
     let generator_scripts = {
-        let mut scripts: PathBuf = std::env::current_dir()?;
+        let mut scripts: PathBuf = base_path.into();
         scripts.push("data");
         scripts.push("scripts");
         let scripts = scripts;
@@ -269,6 +275,7 @@ fn load_generator_data_from_directory(
             default_format_flavor_description_line_script: io::read_to_string({
                 let mut path = scripts.clone();
                 path.push("default_format_flavor_description_line.glu");
+                info!("Reading script file {path:?}");
                 File::open(path)?
             })?,
         })
@@ -296,8 +303,13 @@ fn load_generator_data() -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> 
         };
 
         if let Some(path) = persistent_generator_config_path {
-            Ok(load_generator_data_from_directory(path)?)
-        } else if let Some(file_path) = show_open_zip_dialog()? {
+            match load_generator_data_from_directory(path) {
+                Ok(data) => return Ok(data),
+                Err(err) => error!("{}", err),
+            }
+        }
+
+        if let Some(file_path) = show_open_zip_dialog()? {
             let data = load_generator_data_from_zip(&file_path)?;
             if let Some(path) = dirs::data_dir() {
                 let mut path = path;
@@ -334,19 +346,32 @@ fn load_generator_data() -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> 
     }
 }
 
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum Mode {
+    #[default]
+    Interactive,
+    Statistics,
+}
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value = "interactive")]
+    mode: Mode,
+
+    #[arg(short, long, default_value_t = 2_000_000)]
+    sample_size: u64,
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() == 2 {
-        match args[1].as_str() {
-            "-g" => {
-                let sample_size = 2_000_000;
-                generate_distribution_preview(sample_size)?;
-            }
-            _ => println!("Unknown args, try -g or -d"),
-        };
-        Ok(())
-    } else {
-        generate_character()
+    pretty_env_logger::init();
+    let args = Args::parse();
+    match args.mode {
+        Mode::Statistics => {
+            generate_distribution_preview(args.sample_size)?;
+            Ok(())
+        }
+        Mode::Interactive => generate_character(),
     }
 }

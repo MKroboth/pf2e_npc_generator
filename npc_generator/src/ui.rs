@@ -56,7 +56,13 @@ impl UserInterface {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
-        let data: UIData = Default::default();
+        let data: UIData = UIData {
+            npc_options: NpcOptions {
+                enable_flavor_text: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
 
         UserInterface {
             data,

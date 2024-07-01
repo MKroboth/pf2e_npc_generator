@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 gluon = { version = "0.18.2", features = ["serde", "serialization"] }
-lazy_static = "1.5.0"
 log = "0.4.21"
 rand = "0.8.5"
 serde = { version = "1.0.203", features = ["std", "derive", "alloc", "rc"] }
@@ -16,3 +15,6 @@ tokio = { version = "1.38.0", features = ["rt", "tokio-macros", "rt-multi-thread
 
 [dev-dependencies]
 ron = "0.8.1"
+
+[profile.release]
+debug = 1

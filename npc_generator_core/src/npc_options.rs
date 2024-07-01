@@ -10,4 +10,5 @@ pub struct NpcOptions {
     pub archetype: Option<Archetype>,
     pub age_range: Option<AgeRange>,
     pub sex: Option<String>,
+    pub enable_flavor_text: bool,
 }
