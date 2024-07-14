@@ -118,8 +118,14 @@ impl eframe::App for UserInterface {
                     )
                     .clicked()
                 {
-                    self.resulting_statblock =
-                        Some(self.generator.generate(&self.data.npc_options));
+                    self.resulting_statblock = match self.generator.generate(&self.data.npc_options)
+                    {
+                        Ok(x) => Some(x),
+                        Err(_err) => {
+                            // todo pop-up error dialog
+                            None
+                        }
+                    }
                 }
                 egui::ComboBox::from_label("Generator Mode")
                     .selected_text(format!("{}", &self.data.generated_text_format))

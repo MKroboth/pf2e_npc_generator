@@ -75,26 +75,32 @@ fn generate_distribution_preview(sample_size: u64) -> Result<()> {
                     enable_flavor_text: false,
                     ..Default::default()
                 };
-                let result = generator.generate(&npc_options);
-                let ancestry = result.ancestry.unwrap();
-                let heritage = result.heritage;
-                let ancestry_name = ancestry.name();
-                let heritage_name = heritage
-                    .as_ref()
-                    .map(|x| x.name.clone())
-                    .unwrap_or("Normal".to_string());
-                let mut results = results.lock().unwrap();
-                let mut heritages = heritages.lock().unwrap();
+                match generator.generate(&npc_options) {
+                    Ok(result) => {
+                        let ancestry = result.ancestry.unwrap();
+                        let heritage = result.heritage;
+                        let ancestry_name = ancestry.name();
+                        let heritage_name = heritage
+                            .as_ref()
+                            .map(|x| x.name.clone())
+                            .unwrap_or("Normal".to_string());
+                        let mut results = results.lock().unwrap();
+                        let mut heritages = heritages.lock().unwrap();
 
-                if !results.contains_key(&ancestry_name) {
-                    results.insert(ancestry_name.to_string(), 0);
-                }
-                *results.get_mut(&ancestry_name).unwrap() += 1;
+                        if !results.contains_key(&ancestry_name) {
+                            results.insert(ancestry_name.to_string(), 0);
+                        }
+                        *results.get_mut(&ancestry_name).unwrap() += 1;
 
-                if !heritages.contains_key(&heritage_name) {
-                    heritages.insert(heritage_name.to_string(), 0);
-                }
-                *heritages.get_mut(&heritage_name).unwrap() += 1;
+                        if !heritages.contains_key(&heritage_name) {
+                            heritages.insert(heritage_name.to_string(), 0);
+                        }
+                        *heritages.get_mut(&heritage_name).unwrap() += 1;
+                    }
+                    Err(_err) => {
+                        // todo log error
+                    }
+                };
             });
 
         (
