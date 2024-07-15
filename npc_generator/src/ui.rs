@@ -1,10 +1,10 @@
-use std::{fmt::Display, sync::Arc};
+use std::{borrow::Cow, fmt::Display, sync::Arc};
 
 use npc_generator_core::{
     generators::{Generator, GeneratorData, GeneratorScripts},
     NamedElement, NpcOptions, Statblock,
 };
-use rand::{rngs::ThreadRng, SeedableRng};
+use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 
 pub struct UserInterface {
@@ -49,7 +49,7 @@ struct UIData {
 impl UserInterface {
     /// Called once before the first frame.
     pub fn new(
-        cc: &eframe::CreationContext<'_>,
+        _cc: &eframe::CreationContext<'_>,
         generator_data: Arc<GeneratorData>,
         generator_scripts: Arc<GeneratorScripts>,
     ) -> Self {
@@ -79,7 +79,7 @@ impl UserInterface {
 
 impl eframe::App for UserInterface {
     /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {}
+    //fn save(&mut self, storage: &mut dyn eframe::Storage) {}
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -112,8 +112,7 @@ impl eframe::App for UserInterface {
             ui.horizontal(|ui| {
                 if ui
                     .add_enabled(
-                        (self.data.use_archetype && self.data.npc_options.archetype.is_some())
-                            || !self.data.use_archetype,
+                        !self.data.use_archetype || self.data.npc_options.archetype.is_some(),
                         egui::Button::new("Generate"),
                     )
                     .clicked()
@@ -156,19 +155,19 @@ impl eframe::App for UserInterface {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     egui::ComboBox::from_label("Ancestry")
-                        .selected_text(format!(
-                            "{}",
+                        .selected_text(
                             match self
                                 .data
                                 .npc_options
                                 .ancestry
                                 .as_ref()
-                                .map(|x| String::from(&x.name))
+                                .map(|x| String::from(x.name().as_ref()))
                             {
                                 None => String::from("Generate"),
                                 Some(x) => x,
                             }
-                        ))
+                            .to_string(),
+                        )
                         .show_ui(ui, |ui| {
                             if ui
                                 .selectable_value(
@@ -185,7 +184,7 @@ impl eframe::App for UserInterface {
                                     .selectable_value(
                                         &mut self.data.npc_options.ancestry,
                                         Some(ancestry.0.clone()),
-                                        ancestry.0.name.clone(),
+                                        ancestry.0.name().clone(),
                                     )
                                     .clicked
                                 {
@@ -194,14 +193,14 @@ impl eframe::App for UserInterface {
                             }
                         });
                     egui::ComboBox::from_label("Heritage")
-                        .selected_text(format!(
-                            "{}",
+                        .selected_text(
                             match self.data.npc_options.heritage.as_ref() {
                                 None => String::from("Generate"),
                                 Some(None) => String::from("Normal Person"),
-                                Some(Some(x)) => String::from(&x.name()),
+                                Some(Some(x)) => x.name().to_string(),
                             }
-                        ))
+                            .to_string(),
+                        )
                         .show_ui(ui, |ui| {
                             ui.selectable_value(
                                 &mut self.data.npc_options.heritage,
@@ -227,8 +226,8 @@ impl eframe::App for UserInterface {
                             .selected_text(format!(
                                 "{}",
                                 match self.data.npc_options.archetype {
-                                    Some(ref x) => x.name.as_str(),
-                                    None => "No archetype",
+                                    Some(ref x) => x.name(),
+                                    None => Cow::Borrowed("No archetype"),
                                 }
                             ))
                             .show_ui(ui, |ui| {
@@ -239,8 +238,8 @@ impl eframe::App for UserInterface {
                                 );
 
                                 for archetype in &self.generator.data.archetypes {
-                                    let name = &archetype.name;
-                                    let level = archetype.level;
+                                    let name = archetype.name();
+                                    let level = archetype.level();
                                     ui.selectable_value(
                                         &mut self.data.npc_options.archetype,
                                         Some(archetype.clone()),
@@ -250,8 +249,7 @@ impl eframe::App for UserInterface {
                             });
                     } else {
                         egui::ComboBox::from_label("Background")
-                            .selected_text(format!(
-                                "{}",
+                            .selected_text(
                                 match self
                                     .data
                                     .npc_options
@@ -262,7 +260,8 @@ impl eframe::App for UserInterface {
                                     None => String::from("Generate"),
                                     Some(x) => x,
                                 }
-                            ))
+                                .to_string(),
+                            )
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(
                                     &mut self.data.npc_options.background,
@@ -282,19 +281,19 @@ impl eframe::App for UserInterface {
                 ui.separator();
                 ui.vertical(|ui| {
                     egui::ComboBox::from_label("Age Range")
-                        .selected_text(format!(
-                            "{}",
+                        .selected_text(
                             match self
                                 .data
                                 .npc_options
                                 .age_range
                                 .as_ref()
-                                .map(|x| String::from(x.to_string()))
+                                .map(|x| x.to_string())
                             {
                                 None => String::from("Generate"),
                                 Some(x) => x,
                             }
-                        ))
+                            .to_string(),
+                        )
                         .show_ui(ui, |ui| {
                             ui.selectable_value(
                                 &mut self.data.npc_options.age_range,
@@ -339,22 +338,23 @@ impl eframe::App for UserInterface {
                         });
                     ui.add_enabled_ui(
                         self.data.npc_options.ancestry.is_some()
-                            && !self.data.npc_options.ancestry.as_ref().unwrap().is_asexual,
+                            && !self
+                                .data
+                                .npc_options
+                                .ancestry
+                                .as_ref()
+                                .unwrap()
+                                .is_asexual(),
                         |ui| {
                             egui::ComboBox::from_label("Sex")
-                                .selected_text(format!(
-                                    "{}",
-                                    match self
-                                        .data
-                                        .npc_options
-                                        .sex
-                                        .as_ref()
-                                        .map(|x| String::from(x.to_string()))
+                                .selected_text(
+                                    match self.data.npc_options.sex.as_ref().map(|x| x.to_string())
                                     {
                                         None => String::from("Generate"),
                                         Some(x) => x,
                                     }
-                                ))
+                                    .to_string(),
+                                )
                                 .show_ui(ui, |ui| {
                                     ui.selectable_value(
                                         &mut self.data.npc_options.sex,
@@ -384,7 +384,7 @@ impl eframe::App for UserInterface {
                 ui.add_sized(
                     egui::vec2(ui.available_width(), ui.available_height()),
                     egui::TextEdit::multiline(&mut match self.data.generated_text_format {
-                        GeneratorFormat::Flavor => resulting_statblock.flavor.to_string(),
+                        GeneratorFormat::Flavor => resulting_statblock.flavor().to_string(),
                         GeneratorFormat::PF2EStats => {
                             resulting_statblock.as_pf2e_stats().to_string()
                         }

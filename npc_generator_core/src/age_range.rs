@@ -1,8 +1,4 @@
-use gluon::{
-    base::types::ArcType,
-    vm::thread::{ActiveThread, Trace},
-    Thread, ThreadExt,
-};
+use gluon::{base::types::ArcType, vm::thread::ActiveThread, Thread};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, ops::Range};
 
@@ -39,17 +35,20 @@ impl gluon::vm::api::VmType for AgeRange {
             .into_type()
     }
 }
-impl<'vm, 'value> gluon::vm::api::Pushable<'vm> for AgeRange {
+impl<'vm> gluon::vm::api::Pushable<'vm> for AgeRange {
     fn vm_push(self, context: &mut ActiveThread<'vm>) -> gluon::vm::Result<()> {
         gluon::vm::api::ser::Ser(self).vm_push(context)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(
+    Debug, Default, Serialize, Deserialize, Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Ord,
+)]
 pub enum AgeRange {
     Infant,
     Child,
     Youth,
+    #[default]
     Adult,
     MiddleAged,
     Old,
@@ -71,11 +70,5 @@ impl Display for AgeRange {
                 AgeRange::Venerable => "Venerable",
             }
         )
-    }
-}
-
-impl Default for AgeRange {
-    fn default() -> Self {
-        AgeRange::Adult
     }
 }

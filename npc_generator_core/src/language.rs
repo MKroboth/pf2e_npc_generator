@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -23,7 +25,12 @@ impl NamedElement for Language {
     fn traits(&self) -> &[Trait] {
         &self.traits
     }
-    fn name(&self) -> String {
-        self.name.clone()
+
+    fn name(&self) -> Cow<str> {
+        Cow::Borrowed(&self.name)
+    }
+
+    fn formatted_name(&self) -> Cow<str> {
+        Cow::Borrowed(&self.name)
     }
 }

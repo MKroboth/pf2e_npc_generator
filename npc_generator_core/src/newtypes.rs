@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use rand::distributions::uniform::SampleUniform;
 use serde::{Deserialize, Serialize};
@@ -76,7 +78,7 @@ impl<K: Hash + Eq> WeightMap<K> {
 
         for (value, weight) in self.iter() {
             values.push(value);
-            if let Some(new_weight) = modify_weight_function(&value) {
+            if let Some(new_weight) = modify_weight_function(value) {
                 weights.push(new_weight);
             } else {
                 weights.push(*weight);
@@ -96,6 +98,49 @@ impl<K: Hash + Eq> WeightMap<K> {
     }
 }
 
+impl From<WeightMap<Arc<str>>> for WeightMap<String> {
+    fn from(value: WeightMap<Arc<str>>) -> Self {
+        Self(HashMap::from_iter(
+            value.into_iter().map(|(k, v)| (k.as_ref().into(), v)),
+        ))
+    }
+}
+impl From<WeightMap<Rc<str>>> for WeightMap<String> {
+    fn from(value: WeightMap<Rc<str>>) -> Self {
+        Self(HashMap::from_iter(
+            value.into_iter().map(|(k, v)| (k.as_ref().into(), v)),
+        ))
+    }
+}
+impl From<WeightMap<Box<str>>> for WeightMap<String> {
+    fn from(value: WeightMap<Box<str>>) -> Self {
+        Self(HashMap::from_iter(
+            value.into_iter().map(|(k, v)| (k.into(), v)),
+        ))
+    }
+}
+
+impl From<WeightMap<String>> for WeightMap<Box<str>> {
+    fn from(value: WeightMap<String>) -> Self {
+        Self(HashMap::from_iter(
+            value.into_iter().map(|(k, v)| (k.into(), v)),
+        ))
+    }
+}
+impl From<WeightMap<String>> for WeightMap<Rc<str>> {
+    fn from(value: WeightMap<String>) -> Self {
+        Self(HashMap::from_iter(
+            value.into_iter().map(|(k, v)| (k.into(), v)),
+        ))
+    }
+}
+impl From<WeightMap<String>> for WeightMap<Arc<str>> {
+    fn from(value: WeightMap<String>) -> Self {
+        Self(HashMap::from_iter(
+            value.into_iter().map(|(k, v)| (k.into(), v)),
+        ))
+    }
+}
 impl<T: Hash + Eq> From<HashMap<T, Weight>> for WeightMap<T> {
     fn from(value: HashMap<T, Weight>) -> Self {
         Self(value)

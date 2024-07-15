@@ -2,3 +2,5 @@
 resolver = "2"
 members = ["npc_generator", "npc_generator_core"]
 
+[profile.release]
+debug = 1

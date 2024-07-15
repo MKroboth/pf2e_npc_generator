@@ -31,17 +31,37 @@ impl Ability {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AbilityModifications(pub Vec<AbilityBoost>);
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct AbilityModifications(Vec<AbilityBoost>);
 
-impl AbilityModifications {
-    pub fn new(value: &[AbilityBoost]) -> Self {
-        Self(value.into())
+impl From<Vec<AbilityBoost>> for AbilityModifications {
+    fn from(value: Vec<AbilityBoost>) -> Self {
+        Self(value)
     }
 }
 
-impl Default for AbilityModifications {
-    fn default() -> Self {
-        Self(Vec::new())
+impl AsRef<[AbilityBoost]> for AbilityModifications {
+    fn as_ref(&self) -> &[AbilityBoost] {
+        &self.0
+    }
+}
+
+impl IntoIterator for AbilityModifications {
+    type Item = AbilityBoost;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl AbilityModifications {
+    pub fn new(value: impl Into<Vec<AbilityBoost>>) -> Self {
+        Self(value.into())
+    }
+
+    pub fn iter(&self) -> core::slice::Iter<AbilityBoost> {
+        self.0.iter()
     }
 }

@@ -1,20 +1,23 @@
-use std::{cell::RefCell, fmt::Display, thread::LocalKey};
+use std::{cell::RefCell, fmt::Display, sync::Arc, thread::LocalKey};
 
 use gluon::ThreadExt;
 use serde::{Deserialize, Serialize};
 
 use crate::AgeRange;
 
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Clone)]
-pub struct FormatString(String);
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct FormatString(Arc<str>);
 
 impl FormatString {
-    fn new() -> Self {
-        Self(String::new())
+    #[allow(dead_code)]
+    fn new(value: impl AsRef<str>) -> Self {
+        Self(value.as_ref().into())
     }
+}
 
-    fn into_string(self) -> String {
-        self.0
+impl Default for FormatString {
+    fn default() -> Self {
+        Self("".into())
     }
 }
 
@@ -32,7 +35,7 @@ impl AsRef<str> for FormatString {
 
 impl From<String> for FormatString {
     fn from(value: String) -> Self {
-        Self(value)
+        Self(value.into())
     }
 }
 
@@ -106,6 +109,7 @@ impl Formats {
             .unwrap()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn format_flavor_description_line<'a>(
         &self,
         default: &str,

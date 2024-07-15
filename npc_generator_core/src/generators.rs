@@ -1,12 +1,12 @@
 use self::formats::Formats;
 
 use super::*;
-use log::error;
+use log::{debug, error, info};
 use rand::distributions::Distribution;
 use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
+use std::borrow::Cow;
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio;
@@ -79,13 +79,13 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         let age_range = match age_range {
             Some(x) => x,
             None => ancestry
-                .age_range_distribution
+                .age_range_distribution()
                 .split_weights()
                 .map_err(|_| GenerationError::AgeGenerationError)
-                .and_then(|(values, distribution)| Ok(values[distribution.sample(rng)]))?,
+                .map(|(values, distribution)| values[distribution.sample(rng)])?,
         };
 
-        let valid_ages = ancestry.age_ranges.get(age_range);
+        let valid_ages = ancestry.age_ranges().get(age_range);
         Ok((
             age_range,
             valid_ages
@@ -103,7 +103,9 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
             let (values, distribution) = if let Some(ancestry_weights) = ancestry_weights {
                 self.data
                     .ancestries
-                    .split_weights_with_modifications(|x| ancestry_weights.get(&x.name).copied())
+                    .split_weights_with_modifications(|x| {
+                        ancestry_weights.get(x.name().as_ref()).copied()
+                    })
                     .map_err(|_| GenerationError::AncestryGenerationError)?
             } else {
                 self.data
@@ -118,11 +120,11 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
 
     #[tokio::main(flavor = "current_thread")]
     pub async fn generate(&mut self, options: &NpcOptions) -> Result<Statblock, GenerationError> {
+        let mut rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
         let ancestry_weights = options.ancestry_weights.as_ref();
 
         let ancestry = {
-            let mut ancestry_rng =
-                rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+            let mut ancestry_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
             match options.ancestry.clone() {
                 Some(x) => x,
                 None => {
@@ -134,8 +136,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         };
 
         let heritage = {
-            let mut heritage_rng =
-                rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+            let mut heritage_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
 
             match options.heritage.clone() {
                 Some(x) => x,
@@ -144,11 +145,10 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         };
 
         let background = {
-            let mut background_rng =
-                rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+            let mut background_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
 
-            match options.background.clone() {
-                Some(x) => x,
+            match options.background {
+                Some(ref x) => Cow::Borrowed(x),
                 None => self.generate_background(&mut background_rng).await?,
             }
         };
@@ -156,75 +156,69 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         let sex = match options.sex.as_ref().map(|x| x.to_string()) {
             Some(x) => x,
             None => {
-                if ancestry.is_asexual {
+                if ancestry.is_asexual() {
                     String::new()
                 } else {
-                    let mut sex_rng =
-                        rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+                    let mut sex_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
                     self.generate_sex(&mut sex_rng, &ancestry)?
                 }
             }
         }
         .to_string();
         let (age_range, age) = {
-            let mut age_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+            let mut age_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
             self.generate_age(&mut age_rng, &ancestry, options.age_range.as_ref())
                 .await?
         };
         let mut traits: HashSet<Trait> = HashSet::new();
 
-        traits.extend(ancestry.traits().into_iter().map(|x| x.clone()));
+        traits.extend(ancestry.traits().iter().cloned());
         traits.extend(heritage.iter().flat_map(|x| Vec::from(x.traits())));
-        traits.insert(Trait(ancestry.size.to_string()));
+        traits.insert(Trait(ancestry.size().to_string()));
         let traits: Vec<Trait> = traits.into_iter().collect::<Vec<_>>();
 
-        let pre_statblock = Statblock {
-            traits: traits.clone(),
-            age,
-            age_range: *age_range,
-            name: {
-                let mut names_rng =
-                    rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+        let statblock = {
+            let mut statblock = Statblock::default();
+            statblock.set_name({
+                let mut names_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
                 if options.enable_flavor_text {
                     self.generate_name(&traits, &mut names_rng, &ancestry, &self.data.names, &sex)
                         .await
                 } else {
                     String::default()
                 }
-            },
-            sex,
-            ..Default::default()
+            });
+            statblock.set_age(age);
+            statblock.set_age_range(*age_range);
+            statblock.set_sex(sex);
+            statblock.set_traits(traits.clone());
+            statblock
         };
 
-        let (background, pre_statblock) = if let Some(ref archetype) = options.archetype {
-            let archetype_background = Background {
-                name: archetype.name.clone(),
-                trainings: Default::default(),
-                traits: Default::default(),
-            };
-            (
-                archetype_background,
-                Statblock {
-                    perception: archetype.perception,
-                    land_speed: archetype.speed,
-                    skills: archetype
-                        .skills
-                        .iter()
-                        .map(|(x, y)| (x.clone(), y.clone()))
-                        .collect::<Vec<_>>(),
-                    attributes: archetype.attributes.clone(),
-                    items: archetype.items.clone(),
-                    armor_class: archetype.armor_class,
-                    fortitude_save: archetype.fortitude_save,
-                    reflex_save: archetype.reflex_save,
-                    will_save: archetype.will_save,
-                    hit_points: archetype.hp,
-                    level: archetype.level,
-                    ..pre_statblock
-                },
-            )
+        let (background, statblock) = if let Some(ref archetype) = options.archetype {
+            let mut statblock = statblock.clone();
+            let archetype_background =
+                Background::new(archetype.name(), vec![], Default::default());
+            statblock.set_perception(archetype.perception());
+            statblock.set_land_speed(archetype.speed());
+            statblock.set_skills(
+                archetype
+                    .skills()
+                    .iter()
+                    .map(|(x, y)| (x.clone(), *y))
+                    .collect::<Vec<_>>(),
+            );
+            statblock.set_attributes(archetype.attributes().clone());
+            statblock.set_items(archetype.items_iter());
+            statblock.set_armor_class(archetype.armor_class());
+            statblock.set_fortitude_save(archetype.fortitude_save());
+            statblock.set_reflex_save(archetype.reflex_save());
+            statblock.set_will_save(archetype.will_save());
+            statblock.set_hit_points(archetype.hp());
+            statblock.set_level(archetype.level());
+            (Cow::Owned(archetype_background), statblock)
         } else {
-            let mut stats_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
+            let mut stats_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
 
             (
                 background.clone(),
@@ -233,41 +227,45 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
                     &ancestry,
                     heritage.as_ref(),
                     &background,
-                    pre_statblock,
+                    &statblock,
                 )?,
             )
         };
-        let mut flavor_rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
-        Ok(Statblock {
-            ancestry: Some(ancestry.clone()),
-            heritage: heritage.clone(),
-            flavor: if options.enable_flavor_text {
+
+        let mut flavor_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
+        Ok({
+            let mut statblock = statblock.clone();
+            statblock.set_ancestry(Some(ancestry.clone()));
+            statblock.set_heritage(heritage.clone());
+            statblock.set_flavor(if options.enable_flavor_text {
                 self.generate_flavor(
-                    &ancestry.formats.clone(),
+                    ancestry.formats(),
                     self.scripts.clone(),
                     &mut flavor_rng,
-                    &pre_statblock.skills,
-                    &pre_statblock.attributes,
-                    &pre_statblock.name,
+                    statblock.skills(),
+                    statblock.attributes(),
+                    &statblock.name(),
                     None, // class not yet supported
-                    pre_statblock.level,
-                    pre_statblock.age,
-                    pre_statblock.age_range,
-                    pre_statblock.perception,
-                    pre_statblock.fortitude_save,
-                    pre_statblock.reflex_save,
-                    pre_statblock.will_save,
-                    ancestry,
+                    statblock.level(),
+                    statblock.age(),
+                    statblock.age_range(),
+                    statblock.perception(),
+                    statblock.fortitude_save(),
+                    statblock.reflex_save(),
+                    statblock.will_save(),
+                    &ancestry,
                     heritage.as_ref(),
-                    background.clone(),
-                    &pre_statblock.sex,
+                    &background,
+                    &statblock.sex(),
                 )
                 .await?
             } else {
                 Default::default()
-            },
-            class: background.name,
-            ..pre_statblock
+            });
+            statblock.set_class(background.name());
+
+            debug!("Generated statblock {statblock:?}");
+            statblock
         })
     }
 
@@ -295,34 +293,26 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         }
     }
 
-    pub async fn generate_background(
-        &self,
+    pub async fn generate_background<'a>(
+        &'a self,
         rng: &mut impl Rng,
-    ) -> Result<Background, GenerationError> {
-        let background: HashMap<String, Background> = HashMap::from_iter(
-            self.data
-                .backgrounds
-                .keys()
-                .into_iter()
-                .map(|elem| (elem.name(), elem.clone())),
-        );
+    ) -> Result<Cow<'a, Background>, GenerationError> {
+        let background: HashMap<Cow<'a, str>, &'a Background> =
+            HashMap::from_iter(self.data.backgrounds.keys().map(|elem| (elem.name(), elem)));
 
         // if let Some(ancestry_weights) = ancestry_weights {
         // unimplemented!("Weighting ancestries are not implemented yet")
         // } else {
-        let background_vec: Vec<Background> = background
-            .values()
-            .into_iter()
-            .map(Clone::clone)
-            .collect::<Vec<_>>();
+        let background_vec: Box<[&'a Background]> =
+            background.values().cloned().collect::<Box<_>>();
         let result = background_vec
             .choose(rng)
-            .ok_or(GenerationError::BackgroundGenerationError)?
-            .clone();
-        Ok(result)
+            .ok_or(GenerationError::BackgroundGenerationError)?;
+        Ok(Cow::Borrowed(result))
         /* } */
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn generate_flavor(
         &self,
         formats: &Formats,
@@ -339,9 +329,9 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         _fortitude_save: i16,
         _reflex_save: i16,
         _will_save: i16,
-        ancestry: Ancestry,
+        ancestry: &Ancestry,
         heritage: Option<&Heritage>,
-        background: Background,
+        background: &Background,
         sex: impl AsRef<str>,
     ) -> Result<NpcFlavor, GenerationError> {
         Ok(NpcFlavor {
@@ -352,22 +342,22 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
                 age,
                 age_range,
                 sex,
-                &ancestry.name,
-                heritage.map(|x| x.name.clone()).as_deref(),
-                background.name,
+                ancestry.name().as_ref(),
+                heritage.map(|x| x.name()).as_deref(),
+                background.name(),
                 None,
             )
             .await,
             lineage_line: generate_lineage_line(heritage, formats).await,
             hair_and_eyes_line: generate_flavor_hair_and_eyes_line(
-                rng, formats, &ancestry, heritage,
+                rng, formats, ancestry, heritage,
             )?,
-            skin_line: generate_flavor_skin_line(rng, formats, &ancestry, heritage),
+            skin_line: generate_flavor_skin_line(rng, formats, ancestry, heritage),
             size_and_build_line: generate_size_and_build(
-                rng, formats, &ancestry, age, age_range, heritage,
+                rng, formats, ancestry, age, age_range, heritage,
             ),
-            face_line: generate_flavor_face_line(rng, formats, &ancestry),
-            habit_line: generate_flavor_habit_line(rng, formats, &ancestry),
+            face_line: generate_flavor_face_line(rng, formats, ancestry),
+            habit_line: generate_flavor_habit_line(rng, formats, ancestry),
         })
     }
 
@@ -376,7 +366,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         random_number_generator: &mut impl Rng,
         _ancestry: &Ancestry,
     ) -> Result<String, GenerationError> {
-        let sexes = vec!["male", "female"]; // TODO add diversity
+        let sexes = ["male", "female"]; // TODO add diversity
         Ok(sexes
             .choose(random_number_generator)
             .ok_or(GenerationError::SexGenerationError)?
@@ -397,7 +387,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
             filtered_traits
                 .into_iter()
                 .filter(|x| available_name_traits.contains(x))
-                .map(|x| x.clone())
+                .cloned()
                 .collect::<Vec<Trait>>()
         };
 
@@ -419,16 +409,16 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
             names[name_rng.sample(weights)].clone()
         };
 
-        let surname = if let Some(ref surnames) = ancestry.specimen_surnames {
+        let surname = if let Some(surnames) = ancestry.specimen_surnames() {
             let (surnames, weights) = surnames.split_weights().unwrap();
-            surnames[name_rng.sample(weights)].clone()
+            surnames[name_rng.sample(weights)]
         } else {
             return first_name;
         };
 
         ancestry
-            .formats
-            .format_full_name(&first_name, &surname, vec![])
+            .formats()
+            .format_full_name(&first_name, surname.as_ref(), vec![])
             .await
     }
 }
@@ -441,7 +431,8 @@ fn generate_size_and_build(
     _age_range: AgeRange,
     _heritage: Option<&Heritage>,
 ) -> String {
-    format!("")
+    // TODO
+    String::default()
 }
 
 fn generate_flavor_face_line(
@@ -449,27 +440,29 @@ fn generate_flavor_face_line(
     _formats: &Formats,
     _ancestry: &Ancestry,
 ) -> String {
-    format!("They have a face.")
+    // TODO
+    "They have a face.".to_string()
 }
 fn generate_flavor_habit_line(
     _rng: &mut impl Rng,
     _formats: &Formats,
     _ancestry: &Ancestry,
 ) -> String {
-    format!("")
+    // TODO
+    String::default()
 }
 fn generate_stats(
     stats_rng: &mut rand::prelude::StdRng,
     ancestry: &Ancestry,
     _heritage: Option<&Heritage>,
     background: &Background,
-    pre_statblock: Statblock,
+    pre_statblock: &Statblock,
 ) -> Result<Statblock, GenerationError> {
-    let level = pre_statblock.level;
+    let level = pre_statblock.level();
     let mut attributes = AbilityStats::default();
 
     let mut choosen_this_round = HashSet::new();
-    for amod in ancestry.ability_modifications.0.iter() {
+    for amod in ancestry.ability_modifications().iter() {
         match amod {
             AbilityBoost::Boost(ability) => {
                 *attributes.get_ability_mut(*ability) += 1;
@@ -546,7 +539,7 @@ fn generate_stats(
                 let choosen_skill = Skill::values_excluding_lore()
                     .choose(stats_rng)
                     .ok_or(GenerationError::SkillGenerationError)?;
-                if !excluded_skills.contains(&choosen_skill) {
+                if !excluded_skills.contains(choosen_skill) {
                     selected_skills.insert(choosen_skill.clone());
                 }
                 loop_guard -= 1;
@@ -602,32 +595,42 @@ fn generate_stats(
         skills
     };
 
-    let hit_points: i32 = (ancestry.base_hp as i32) + (attributes.constitution as i32);
+    let hit_points: i32 = (ancestry.base_hp() as i32) + (attributes.constitution as i32);
 
-    Ok(Statblock {
-        perception: (attributes.wisdom + proficiencies.perception.bonus_for_level(level)) as i16,
-        fortitude_save: (attributes.constitution
-            + proficiencies.fortitude_save.bonus_for_level(level)) as i16,
-        reflex_save: (attributes.dexterity + proficiencies.fortitude_save.bonus_for_level(level))
-            as i16,
-        will_save: (attributes.wisdom + proficiencies.fortitude_save.bonus_for_level(level)) as i16,
-        armor_class: (attributes.dexterity + proficiencies.unarmored_defense.bonus_for_level(level))
-            as i16,
-        land_speed: ancestry.speed,
-        skills,
-        attributes,
-        proficiencies,
-        hit_points,
-        ..pre_statblock
+    Ok({
+        let mut statblock = pre_statblock.clone();
+
+        statblock.set_perception(
+            (attributes.wisdom + proficiencies.perception.bonus_for_level(level)) as i16,
+        );
+        statblock.set_fortitude_save(
+            (attributes.constitution + proficiencies.fortitude_save.bonus_for_level(level)) as i16,
+        );
+        statblock.set_reflex_save(
+            (attributes.dexterity + proficiencies.reflex_save.bonus_for_level(level)) as i16,
+        );
+        statblock.set_will_save(
+            (attributes.wisdom + proficiencies.fortitude_save.bonus_for_level(level)) as i16,
+        );
+        statblock.set_armor_class(
+            (attributes.dexterity + proficiencies.unarmored_defense.bonus_for_level(level)) as i16,
+        );
+        statblock.set_land_speed(ancestry.speed());
+
+        statblock.set_skills(skills);
+        statblock.set_attributes(attributes);
+        statblock.set_proficiencies(proficiencies);
+        statblock.set_hit_points(hit_points);
+        statblock
     })
 }
 
-async fn generate_lineage_line(heritage: Option<&Heritage>, formats: &Formats) -> Option<String> {
+async fn generate_lineage_line(heritage: Option<&Heritage>, _formats: &Formats) -> Option<String> {
     if let Some(heritage) = heritage {
         match heritage
-            .lineage
+            .lineage()
             .as_ref()
-            .map(|lineage| heritage.formats.format_lineage_line(lineage))
+            .map(|lineage| heritage.formats().format_lineage_line(lineage))
         {
             Some(x) => Some(x.await),
             None => None,
@@ -637,6 +640,7 @@ async fn generate_lineage_line(heritage: Option<&Heritage>, formats: &Formats) -
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn generate_flavor_description_line(
     generator_scripts: Arc<GeneratorScripts>,
     formats: &Formats,
@@ -715,14 +719,18 @@ async fn generate_flavor_description_line(
 
 fn generate_flavor_hairs(
     rng: &mut impl Rng,
-    formats: &Formats,
+    _formats: &Formats,
     ancestry: &Ancestry,
     _heritage: Option<&Heritage>,
 ) -> Result<String, GenerationError> {
+    let ancestry_hair_type = ancestry.possible_hair_type();
+    let ancestry_hair_colors = ancestry.possible_hair_colors();
+    let ancestry_hair_length = ancestry.possible_hair_length();
+
     let (possible_hair_colors, possible_hair_type, possible_hair_length) = match (
-        ancestry.possible_hair_type.as_ref(),
-        ancestry.possible_hair_colors.as_ref(),
-        ancestry.possible_hair_length.as_ref(),
+        ancestry_hair_colors,
+        ancestry_hair_type,
+        ancestry_hair_length,
     ) {
         (Some(hair_type), Some(hair_color), Some(hair_length)) => {
             (hair_color, hair_type, hair_length)
@@ -734,40 +742,43 @@ fn generate_flavor_hairs(
         let (values, distribution) = possible_hair_colors
             .split_weights()
             .map_err(|_| GenerationError::HairGenerationError("color".into()))?;
-        (values[distribution.sample(rng)]).into()
+        (values[distribution.sample(rng)]).as_ref().into()
     };
     let hair_type: String = {
         let (values, distribution) = possible_hair_type
             .split_weights()
             .map_err(|_| GenerationError::HairGenerationError("color".into()))?;
-        (values[distribution.sample(rng)]).into()
+        (values[distribution.sample(rng)]).as_ref().into()
     };
     let hair_length: String = {
         let (values, distribution) = possible_hair_length
             .split_weights()
             .map_err(|_| GenerationError::HairGenerationError("color".into()))?;
-        (values[distribution.sample(rng)]).into()
+        (values[distribution.sample(rng)]).as_ref().into()
     };
 
-    let hair = &ancestry.hair_substance;
+    let hair = ancestry.hair_substance();
     Ok(format!("{hair_length}, {hair_type}, {hair_color} {hair}"))
 }
 
 fn generate_flavor_eyes(
     rng: &mut impl Rng,
-    formats: &Formats,
+    _formats: &Formats,
     ancestry: &Ancestry,
     heritage: Option<&Heritage>,
 ) -> String {
-    let mut available_eye_colors: WeightMap<String> = WeightMap::new();
-    if let Some(x) = &ancestry.possible_eye_colors {
-        available_eye_colors.extend(x.clone());
+    let mut available_eye_colors: WeightMap<Cow<str>> = WeightMap::new();
+    if let Some(x) = ancestry.possible_eye_colors() {
+        available_eye_colors.extend(x.into_iter().map(|(k, v)| (Cow::Borrowed(k.as_ref()), *v)));
     } else {
         return "no eyes".into();
     };
 
     if let Some(heritage) = heritage {
-        let eye_colors = heritage.additional_eye_colors.clone();
+        let eye_colors = heritage
+            .additional_eye_colors()
+            .iter()
+            .map(|(k, v)| (Cow::Borrowed(k.as_ref()), *v));
         available_eye_colors.extend(eye_colors);
     }
 
@@ -776,7 +787,7 @@ fn generate_flavor_eyes(
     let eye_color: &str = available_eye_colors[distribution.sample(rng)];
     let heterochromia_color: &str = available_eye_colors[distribution.sample(rng)];
     let force_heterochromia = if let Some(heritage) = heritage {
-        heritage.force_heterochromia.clone()
+        heritage.force_heterochromia()
     } else {
         None
     };
@@ -785,7 +796,7 @@ fn generate_flavor_eyes(
             (true, color)
         } else {
             let dist = rand::distributions::Bernoulli::new(
-                ancestry.mutation_probabilities[&Mutation::Heterochromia],
+                ancestry.mutation_probabilities()[&Mutation::Heterochromia],
             )
             .unwrap();
             (dist.sample(rng), heterochromia_color)
@@ -805,9 +816,8 @@ fn generate_flavor_eyes(
         format!(
             "heterochromatic eyes.\nTheir left eye is {left_eye} and their right eye is {right_eye}"
         )
-        .into()
     } else {
-        format!("{eye_color} eyes").into()
+        format!("{eye_color} eyes")
     }
 }
 
@@ -819,26 +829,28 @@ fn generate_flavor_hair_and_eyes_line(
 ) -> Result<String, GenerationError> {
     Ok(format!(
         "They have {} and {}.",
-        generate_flavor_hairs(&mut rng, formats, &ancestry, heritage)?,
+        generate_flavor_hairs(&mut rng, formats, ancestry, heritage)?,
         generate_flavor_eyes(&mut rng, formats, ancestry, heritage)
-    )
-    .into())
+    ))
 }
 fn generate_flavor_skin_line(
-    mut rng: &mut impl Rng,
-    formats: &Formats,
+    rng: &mut impl Rng,
+    _formats: &Formats,
     ancestry: &Ancestry,
     _heritage: Option<&Heritage>,
 ) -> String {
-    let skin_texture = {
-        let (skin_textures, distribution) = ancestry.possible_skin_texture.split_weights().unwrap();
+    let skin_texture: &str = {
+        let (skin_textures, distribution) =
+            ancestry.possible_skin_texture().split_weights().unwrap();
         skin_textures[rng.sample(distribution)]
-    };
+    }
+    .as_ref();
 
-    let skin_tone = {
-        let (skin_tones, distribution) = ancestry.possible_skin_tone.split_weights().unwrap();
+    let skin_tone: &str = {
+        let (skin_tones, distribution) = ancestry.possible_skin_tone().split_weights().unwrap();
         skin_tones[rng.sample(distribution)]
-    };
-    let skin = &ancestry.skin_substance;
+    }
+    .as_ref();
+    let skin: &str = ancestry.skin_substance();
     format!("They have {skin_texture} {skin_tone} {skin}.")
 }

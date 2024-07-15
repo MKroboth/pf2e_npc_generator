@@ -2,8 +2,9 @@ use crate::Skill;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum Proficiency {
+    #[default]
     Untrained,
     Trained,
     Expert,
@@ -17,7 +18,7 @@ impl Proficiency {
             return 0;
         }
 
-        level as i8
+        level
             + match self {
                 Proficiency::Untrained => unreachable!(),
                 Proficiency::Trained => 2,
@@ -25,12 +26,6 @@ impl Proficiency {
                 Proficiency::Master => 6,
                 Proficiency::Legendary => 8,
             }
-    }
-}
-
-impl Default for Proficiency {
-    fn default() -> Self {
-        Proficiency::Untrained
     }
 }
 

@@ -2879,6 +2879,7 @@ name = "npc_generator_core"
 version = "0.1.0"
 dependencies = [
  "gluon",
+ "lazy_static",
  "log",
  "rand",
  "ron",

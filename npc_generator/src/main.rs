@@ -1,5 +1,4 @@
 use clap::{Parser, ValueEnum};
-use egui;
 #[cfg(feature = "rayon")]
 use indicatif::ParallelProgressIterator;
 use indicatif::{ProgressIterator, ProgressStyle};
@@ -14,7 +13,6 @@ use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Read, Write};
 use std::path::Path;
 use std::{
     error::Error,
@@ -77,25 +75,25 @@ fn generate_distribution_preview(sample_size: u64) -> Result<()> {
                 };
                 match generator.generate(&npc_options) {
                     Ok(result) => {
-                        let ancestry = result.ancestry.unwrap();
-                        let heritage = result.heritage;
+                        let ancestry = result.ancestry().unwrap();
+                        let heritage = result.heritage();
                         let ancestry_name = ancestry.name();
                         let heritage_name = heritage
                             .as_ref()
-                            .map(|x| x.name.clone())
-                            .unwrap_or("Normal".to_string());
+                            .map(|x| x.name())
+                            .unwrap_or(std::borrow::Cow::Borrowed("Normal"));
                         let mut results = results.lock().unwrap();
                         let mut heritages = heritages.lock().unwrap();
 
-                        if !results.contains_key(&ancestry_name) {
+                        if !results.contains_key(ancestry_name.as_ref()) {
                             results.insert(ancestry_name.to_string(), 0);
                         }
-                        *results.get_mut(&ancestry_name).unwrap() += 1;
+                        *results.get_mut(ancestry_name.as_ref()).unwrap() += 1;
 
-                        if !heritages.contains_key(&heritage_name) {
+                        if !heritages.contains_key(heritage_name.as_ref()) {
                             heritages.insert(heritage_name.to_string(), 0);
                         }
-                        *heritages.get_mut(&heritage_name).unwrap() += 1;
+                        *heritages.get_mut(heritage_name.as_ref()).unwrap() += 1;
                     }
                     Err(_err) => {
                         // todo log error
@@ -183,11 +181,11 @@ fn load_generator_data_from_zip(
         T: for<'a> serde::Deserialize<'a>,
         R: io::Seek + io::Read,
     {
-        let mut file = zip
+        let file = zip
             .by_name(name)
             .with_context(|| format!("Can't read {name} from zip file"))?;
-        let mut data = io::read_to_string(file)?;
-        Ok(ron::from_str(&data).with_context(|| format!("Can't deserialize {name}"))?)
+        let data = io::read_to_string(file)?;
+        ron::from_str(&data).with_context(|| format!("Can't deserialize {name}"))
     }
 
     let generator_data = {
@@ -199,7 +197,7 @@ fn load_generator_data_from_zip(
 
         let archetypes: Vec<Archetype> = {
             let mut archetypes: Vec<Archetype> = read_from_zip(&mut zip, "archetypes.ron")?;
-            archetypes.sort_by_key(|x| x.level);
+            archetypes.sort_by_key(|x| x.level());
             archetypes
         };
 
@@ -243,7 +241,7 @@ fn load_generator_data_from_directory(
             info!("Trying to read {data:?}");
             let data = fs::read_to_string(&path)
                 .with_context(|| format!("Can't read {name} from {path:?}"))?;
-            Ok(ron::from_str(&data).with_context(|| format!("Can't deserialize {name}"))?)
+            ron::from_str(&data).with_context(|| format!("Can't deserialize {name}"))
         }
 
         let ancestries: WeightMap<Ancestry> = read_file(&data, "ancestries.ron")?;
@@ -254,7 +252,7 @@ fn load_generator_data_from_directory(
 
         let archetypes = {
             let mut archetypes: Vec<Archetype> = read_file(&data, "archetypes.ron")?;
-            archetypes.sort_by_key(|x| x.level);
+            archetypes.sort_by_key(|x| x.level());
             archetypes
         };
 
@@ -323,7 +321,7 @@ fn load_generator_data() -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> 
                 path.push("generator_data");
                 path.push("data");
                 match fs::create_dir_all(&path)
-                    .and_then(|()| Ok(File::open(file_path)?))
+                    .and_then(|()| File::open(file_path))
                     .and_then(|file| Ok(zip::ZipArchive::new(file)?))
                     .and_then(|mut file| Ok(file.extract(path)?))
                 {
