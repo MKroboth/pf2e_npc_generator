@@ -1,7 +1,7 @@
 use self::formats::Formats;
 
 use super::*;
-use log::{debug, error, info};
+use log::{debug, error};
 use rand::distributions::Distribution;
 use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
@@ -174,7 +174,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
 
         traits.extend(ancestry.traits().iter().cloned());
         traits.extend(heritage.iter().flat_map(|x| Vec::from(x.traits())));
-        traits.insert(Trait(ancestry.size().to_string()));
+        traits.insert(Trait::new(ancestry.size().to_string()));
         let traits: Vec<Trait> = traits.into_iter().collect::<Vec<_>>();
 
         let statblock = {

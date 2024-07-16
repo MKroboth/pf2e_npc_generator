@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +11,7 @@ pub enum Skill {
     Deception,
     Diplomacy,
     Intimidation,
-    Lore(String),
+    Lore(Arc<str>),
     Medicine,
     Nature,
     Occultism,

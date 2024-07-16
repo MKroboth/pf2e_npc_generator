@@ -1,7 +1,9 @@
 use clap::{Parser, ValueEnum};
 #[cfg(feature = "rayon")]
 use indicatif::ParallelProgressIterator;
-use indicatif::{ProgressIterator, ProgressStyle};
+#[cfg(not(feature = "rayon"))]
+use indicatif::ProgressIterator;
+use indicatif::ProgressStyle;
 use log::{error, info};
 use native_dialog::FileDialog;
 use npc_generator_core::generators::{GeneratorData, GeneratorScripts};
@@ -11,7 +13,7 @@ use rand::SeedableRng;
 use rayon::iter::IntoParallelIterator;
 #[cfg(feature = "rayon")]
 use rayon::iter::ParallelIterator;
-use std::collections::HashMap;
+use std::collections::{HashMap, LinkedList};
 use std::fs::File;
 use std::path::Path;
 use std::{
@@ -38,13 +40,14 @@ fn generate_iterator(range: std::ops::Range<usize>) -> rayon::range::Iter<usize>
 fn generate_distribution_preview(sample_size: u64) -> Result<()> {
     let (generator_data, generator_scripts) = load_generator_data()?;
 
-    let (results, heritages, elapsed) = {
+    let (results, heritages, errors, elapsed) = {
         let results: HashMap<String, usize> = HashMap::new();
         let heritages: HashMap<String, usize> = HashMap::new();
 
         println!("Generating npcs...");
         let results = Mutex::new(results);
         let heritages = Mutex::new(heritages);
+        let errors: Mutex<LinkedList<anyhow::Error>> = Mutex::new(LinkedList::new());
 
         use std::time::Instant;
         let now = Instant::now();
@@ -95,8 +98,9 @@ fn generate_distribution_preview(sample_size: u64) -> Result<()> {
                         }
                         *heritages.get_mut(heritage_name.as_ref()).unwrap() += 1;
                     }
-                    Err(_err) => {
-                        // todo log error
+                    Err(err) => {
+                        let mut errors = errors.lock().unwrap();
+                        errors.push_front(err.into())
                     }
                 };
             });
@@ -104,6 +108,7 @@ fn generate_distribution_preview(sample_size: u64) -> Result<()> {
         (
             results.into_inner().unwrap(),
             heritages.into_inner().unwrap(),
+            errors.into_inner().unwrap(),
             now.elapsed(),
         )
     };
@@ -135,7 +140,19 @@ fn generate_distribution_preview(sample_size: u64) -> Result<()> {
             heritage, population_percent, count
         );
     }
-    Ok(())
+
+    let error_len = errors.len();
+    if error_len == 0 {
+        Ok(())
+    } else {
+        println!(
+            "Got {} errors during generation ({}% failure rate):",
+            error_len,
+            (100.0 / sample_size as f64) * error_len as f64
+        );
+        errors.iter().for_each(|err| println!("{err}"));
+        Err(anyhow!("Something went wrong :-)"))
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
