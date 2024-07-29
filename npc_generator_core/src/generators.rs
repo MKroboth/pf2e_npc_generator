@@ -403,7 +403,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
                 unflavored_statblock.age_range(),
                 heritage,
             ),
-            face_line: generate_flavor_face_line(rng, formats, ancestry),
+            face_line: generate_flavor_face_line(rng, formats, ancestry, unflavored_statblock),
             habit_line: generate_flavor_habit_line(rng, formats, ancestry),
         })
     }
@@ -473,21 +473,31 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
 fn generate_size_and_build(
     _rng: &mut impl Rng,
     _formats: &Formats,
-    _ancestry: &Ancestry,
+    ancestry: &Ancestry,
     _age: u64,
     _age_range: AgeRange,
     _heritage: Option<&Heritage>,
 ) -> String {
-    // TODO
-    String::default()
+    let bulk = match ancestry.size() {
+        Size::Tiny => 1,
+        Size::Small => 3,
+        Size::Medium => 6,
+        Size::Large => 12,
+        Size::Huge => 24,
+        Size::Garganutan => 48,
+    };
+
+    format!("They have a bulk of {bulk}")
 }
 
 fn generate_flavor_face_line(
     _rng: &mut impl Rng,
     _formats: &Formats,
     _ancestry: &Ancestry,
+    _statblock: &Statblock,
 ) -> String {
     // TODO
+
     "They have a face.".to_string()
 }
 fn generate_flavor_habit_line(
@@ -496,7 +506,7 @@ fn generate_flavor_habit_line(
     _ancestry: &Ancestry,
 ) -> String {
     // TODO
-    String::default()
+    "They have habits.".to_string()
 }
 
 fn generate_stats(
@@ -763,37 +773,6 @@ async fn generate_flavor_description_line(
             job_name,
         )
         .await
-    // match age_range {
-    //     AgeRange::Infant => {
-    //         if age == 0 {
-    //             format!("{name} is a{sex} {ancestry_name}{heritage_name} newborn.")
-    //         } else {
-    //             format!("{name} is a {age} year old{sex} {ancestry_name}{heritage_name} infant.")
-    //         }
-    //     }
-    //     AgeRange::Child => {
-    //         format!(
-    //             "{name} is a {age} year old{sex} {ancestry_name}{heritage_name} child {job_name}."
-    //         )
-    //     }
-    //     AgeRange::Youth => {
-    //         format!("{name} is a {age} year old{sex} {ancestry_name}{heritage_name} {job_name} in their youths.")
-    //     }
-    //     AgeRange::Adult => {
-    //         format!("{name} is an adult, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}.")
-    //     }
-    //     AgeRange::MiddleAged => {
-    //         format!("{name} is a middle-aged, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}.")
-    //     }
-    //     AgeRange::Old => {
-    //         format!(
-    //             "{name} is an old, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}."
-    //         )
-    //     }
-    //     AgeRange::Venerable => {
-    //         format!("{name} is a venerable, {age} year old{sex} {ancestry_name}{heritage_name} {job_name}.")
-    //     }
-    // }
 }
 
 fn generate_flavor_hairs(
