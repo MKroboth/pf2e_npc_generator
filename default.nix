@@ -11,18 +11,16 @@ let
     ];
 in
 {
-  devShell =
-    with pkgs;
-    mkShell {
-      buildInputs = [
-        bacon
-        clippy
-        cargo
-        rustc
-        rust-analyzer
-      ];
-      RUST_LOG = "debug";
-      RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
-      LD_LIBRARY_PATH = libPath;
-    };
+  devShell = pkgs.mkShell {
+    buildInputs = with pkgs; [
+      bacon
+      clippy
+      cargo
+      rustc
+      rust-analyzer
+    ];
+    RUST_LOG = "npc_generator=debug,npc_generator_core=debug,warn";
+    RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+    LD_LIBRARY_PATH = libPath;
+  };
 }

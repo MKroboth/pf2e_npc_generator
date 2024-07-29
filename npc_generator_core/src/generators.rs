@@ -5,8 +5,10 @@ use log::{debug, error};
 use rand::distributions::Distribution;
 use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
+use std::backtrace::Backtrace;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio;
@@ -39,23 +41,65 @@ pub enum RngError {
 
 #[derive(Error, Debug)]
 pub enum GenerationError {
-    #[error("unable to generate random age")]
-    AgeGenerationError,
-    #[error("unable to generate ancestry")]
-    AncestryGenerationError,
-    #[error("unable to generate ability value")]
-    AbilityGenerationError,
-    #[error("unable to generate skill")]
-    SkillGenerationError,
-    #[error("unable to generate hair {0}")]
-    HairGenerationError(String),
-    #[error("unable to generate heritage")]
-    HeritageGenerationError,
-    #[error("unable to generate background")]
-    BackgroundGenerationError,
-    #[error("unable to generate sex")]
-    SexGenerationError,
+    #[error(transparent)]
+    AgeGenerationError(#[from] AgeGenerationError),
+    #[error(transparent)]
+    AncestryGenerationError(#[from] AncestryGenerationError),
+    #[error(transparent)]
+    AbilityGenerationError(#[from] AbilityGenerationError),
+    #[error(transparent)]
+    SkillGenerationError(#[from] SkillGenerationError),
+    #[error(transparent)]
+    HairGenerationError(#[from] HairGenerationError),
+    #[error(transparent)]
+    HeritageGenerationError(#[from] HeritageGenerationError),
+    #[error(transparent)]
+    BackgroundGenerationError(#[from] BackgroundGenerationError),
+    #[error(transparent)]
+    SexGenerationError(#[from] SexGenerationError),
 }
+
+#[derive(Error, Debug)]
+#[error("unable to generate random age")]
+pub struct AgeGenerationError;
+
+#[derive(Error, Debug)]
+#[error("unable to generate random ancestry")]
+pub struct AncestryGenerationError;
+
+#[derive(Error, Debug)]
+#[error("unable to generate random abilities")]
+pub struct AbilityGenerationError;
+
+#[derive(Error, Debug)]
+#[error("unable to generate skills")]
+pub struct SkillGenerationError;
+
+#[derive(Error, Debug)]
+#[error("unable to generate hair {message}")]
+pub struct HairGenerationError {
+    pub message: String,
+}
+
+impl<T: AsRef<str>> From<T> for HairGenerationError {
+    fn from(value: T) -> Self {
+        Self {
+            message: value.as_ref().into(),
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+#[error("unable to generate heritage")]
+pub struct HeritageGenerationError;
+
+#[derive(Error, Debug)]
+#[error("unable to generate background")]
+pub struct BackgroundGenerationError;
+
+#[derive(Error, Debug)]
+#[error("unable to generate sex")]
+pub struct SexGenerationError;
 
 impl<R: rand::Rng + Send + Sync> Generator<R> {
     pub fn new(
@@ -75,30 +119,25 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         rng: &mut impl Rng,
         ancestry: &'a Ancestry,
         age_range: Option<&'a AgeRange>,
-    ) -> Result<(&'a AgeRange, u64), GenerationError> {
+    ) -> Result<(&'a AgeRange, u64), AgeGenerationError> {
         let age_range = match age_range {
             Some(x) => x,
             None => ancestry
                 .age_range_distribution()
                 .split_weights()
-                .map_err(|_| GenerationError::AgeGenerationError)
+                .map_err(|_| AgeGenerationError)
                 .map(|(values, distribution)| values[distribution.sample(rng)])?,
         };
 
         let valid_ages = ancestry.age_ranges().get(age_range);
-        Ok((
-            age_range,
-            valid_ages
-                .choose(rng)
-                .ok_or(GenerationError::AgeGenerationError)?,
-        ))
+        Ok((age_range, valid_ages.choose(rng).ok_or(AgeGenerationError)?))
     }
 
     async fn generate_ancestry(
         &self,
         rng: &mut impl Rng,
         ancestry_weights: Option<&WeightMap<String>>,
-    ) -> Result<Ancestry, GenerationError> {
+    ) -> Result<Ancestry, AncestryGenerationError> {
         let ancestry = {
             let (values, distribution) = if let Some(ancestry_weights) = ancestry_weights {
                 self.data
@@ -106,12 +145,12 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
                     .split_weights_with_modifications(|x| {
                         ancestry_weights.get(x.name().as_ref()).copied()
                     })
-                    .map_err(|_| GenerationError::AncestryGenerationError)?
+                    .map_err(|_| AncestryGenerationError)?
             } else {
                 self.data
                     .ancestries
                     .split_weights()
-                    .map_err(|_| GenerationError::AncestryGenerationError)?
+                    .map_err(|_| AncestryGenerationError)?
             };
             values[distribution.sample(rng)].clone()
         };
@@ -275,7 +314,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
     ) -> Result<Option<Heritage>, GenerationError> {
         if rng.sample(
             rand::distributions::Bernoulli::new(self.data.normal_heritage_weight)
-                .map_err(|_| GenerationError::HeritageGenerationError)?,
+                .map_err(|_| HeritageGenerationError)?,
         ) {
             // TODO choose normal heritage
             Ok(None)
@@ -285,7 +324,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
                     .data
                     .versitile_heritages
                     .split_weights()
-                    .map_err(|_| GenerationError::HeritageGenerationError)?;
+                    .map_err(|_| HeritageGenerationError)?;
                 values[distribution.sample(rng)].clone()
             };
 
@@ -307,7 +346,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
             background.values().cloned().collect::<Box<_>>();
         let result = background_vec
             .choose(rng)
-            .ok_or(GenerationError::BackgroundGenerationError)?;
+            .ok_or(BackgroundGenerationError)?;
         Ok(Cow::Borrowed(result))
         /* } */
     }
@@ -369,7 +408,7 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         let sexes = ["male", "female"]; // TODO add diversity
         Ok(sexes
             .choose(random_number_generator)
-            .ok_or(GenerationError::SexGenerationError)?
+            .ok_or(SexGenerationError)?
             .to_string())
     }
 
@@ -475,11 +514,11 @@ fn generate_stats(
             AbilityBoost::Free => {
                 let mut ability = Ability::values()
                     .choose(stats_rng)
-                    .ok_or(GenerationError::AbilityGenerationError)?;
+                    .ok_or(AbilityGenerationError)?;
                 while choosen_this_round.contains(ability) {
                     ability = Ability::values()
                         .choose(stats_rng)
-                        .ok_or(GenerationError::AbilityGenerationError)?;
+                        .ok_or(AbilityGenerationError)?;
                 }
 
                 *attributes.get_ability_mut(*ability) += 1;
@@ -490,11 +529,11 @@ fn generate_stats(
     for _ in 0..4 {
         let mut ability = Ability::values()
             .choose(stats_rng)
-            .ok_or(GenerationError::AbilityGenerationError)?;
+            .ok_or(AbilityGenerationError)?;
         while choosen_this_round.contains(ability) {
             ability = Ability::values()
                 .choose(stats_rng)
-                .ok_or(GenerationError::AbilityGenerationError)?;
+                .ok_or(AbilityGenerationError)?;
         }
 
         *attributes.get_ability_mut(*ability) += 1;
@@ -504,11 +543,11 @@ fn generate_stats(
     for _ in 0..4 {
         let mut ability = Ability::values()
             .choose(stats_rng)
-            .ok_or(GenerationError::AbilityGenerationError)?;
+            .ok_or(AbilityGenerationError)?;
         while choosen_this_round.contains(ability) {
             ability = Ability::values()
                 .choose(stats_rng)
-                .ok_or(GenerationError::AbilityGenerationError)?;
+                .ok_or(AbilityGenerationError)?;
         }
 
         *attributes.get_ability_mut(*ability) += 1;
@@ -538,7 +577,7 @@ fn generate_stats(
             while selected_skills.len() != additional_skills as usize {
                 let choosen_skill = Skill::values_excluding_lore()
                     .choose(stats_rng)
-                    .ok_or(GenerationError::SkillGenerationError)?;
+                    .ok_or(SkillGenerationError)?;
                 if !excluded_skills.contains(choosen_skill) {
                     selected_skills.insert(choosen_skill.clone());
                 }
@@ -722,7 +761,7 @@ fn generate_flavor_hairs(
     _formats: &Formats,
     ancestry: &Ancestry,
     _heritage: Option<&Heritage>,
-) -> Result<String, GenerationError> {
+) -> Result<String, HairGenerationError> {
     let ancestry_hair_type = ancestry.possible_hair_type();
     let ancestry_hair_colors = ancestry.possible_hair_colors();
     let ancestry_hair_length = ancestry.possible_hair_length();
@@ -739,21 +778,15 @@ fn generate_flavor_hairs(
     };
 
     let hair_color: String = {
-        let (values, distribution) = possible_hair_colors
-            .split_weights()
-            .map_err(|_| GenerationError::HairGenerationError("color".into()))?;
+        let (values, distribution) = possible_hair_colors.split_weights().map_err(|_| "color")?;
         (values[distribution.sample(rng)]).as_ref().into()
     };
     let hair_type: String = {
-        let (values, distribution) = possible_hair_type
-            .split_weights()
-            .map_err(|_| GenerationError::HairGenerationError("color".into()))?;
+        let (values, distribution) = possible_hair_type.split_weights().map_err(|_| "type")?;
         (values[distribution.sample(rng)]).as_ref().into()
     };
     let hair_length: String = {
-        let (values, distribution) = possible_hair_length
-            .split_weights()
-            .map_err(|_| GenerationError::HairGenerationError("color".into()))?;
+        let (values, distribution) = possible_hair_length.split_weights().map_err(|_| "length")?;
         (values[distribution.sample(rng)]).as_ref().into()
     };
 
