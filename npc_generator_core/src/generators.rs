@@ -1,14 +1,12 @@
 use self::formats::Formats;
 
 use super::*;
-use log::{debug, error};
+use log::{debug, error, info};
 use rand::distributions::Distribution;
 use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
-use std::backtrace::Backtrace;
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::fmt::Display;
+use std::collections::{HashMap, LinkedList};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio;
@@ -50,7 +48,7 @@ pub enum GenerationError {
     #[error(transparent)]
     SkillGenerationError(#[from] SkillGenerationError),
     #[error(transparent)]
-    HairGenerationError(#[from] HairGenerationError),
+    FlavorGenerationError(#[from] FlavorGenerationError),
     #[error(transparent)]
     HeritageGenerationError(#[from] HeritageGenerationError),
     #[error(transparent)]
@@ -100,6 +98,22 @@ pub struct BackgroundGenerationError;
 #[derive(Error, Debug)]
 #[error("unable to generate sex")]
 pub struct SexGenerationError;
+
+#[derive(Error, Debug)]
+pub enum FlavorGenerationError {
+    #[error("Flavor generation error: ancestry in unflavored statblock is None")]
+    AncestryIsNone,
+    #[error("Flavor generation error: heritage in unflavored statblock is None")]
+    HeritageIsNone,
+    #[error(transparent)]
+    FlavorLineGenerationError(#[from] FlavorLineGenerationError),
+}
+
+#[derive(Error, Debug)]
+pub enum FlavorLineGenerationError {
+    #[error(transparent)]
+    HairGenerationError(#[from] HairGenerationError),
+}
 
 impl<R: rand::Rng + Send + Sync> Generator<R> {
     pub fn new(
@@ -209,93 +223,91 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
             self.generate_age(&mut age_rng, &ancestry, options.age_range.as_ref())
                 .await?
         };
-        let mut traits: HashSet<Trait> = HashSet::new();
 
-        traits.extend(ancestry.traits().iter().cloned());
-        traits.extend(heritage.iter().flat_map(|x| Vec::from(x.traits())));
-        traits.insert(Trait::new(ancestry.size().to_string()));
-        let traits: Vec<Trait> = traits.into_iter().collect::<Vec<_>>();
+        let traits: Vec<Trait> = {
+            let mut traits: HashSet<Trait> = HashSet::new();
 
-        let statblock = {
-            let mut statblock = Statblock::default();
-            statblock.set_name({
-                let mut names_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
-                if options.enable_flavor_text {
-                    self.generate_name(&traits, &mut names_rng, &ancestry, &self.data.names, &sex)
+            traits.extend(ancestry.traits().iter().cloned());
+            traits.extend(heritage.iter().flat_map(|x| Vec::from(x.traits())));
+            traits.insert(Trait::new(ancestry.size().to_string()));
+            traits.into_iter().collect::<Vec<_>>()
+        };
+
+        let (background, statblock) = {
+            let statblock = {
+                let mut statblock = Statblock::default();
+                statblock.set_name({
+                    let mut names_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
+                    if options.enable_flavor_text {
+                        self.generate_name(
+                            &traits,
+                            &mut names_rng,
+                            &ancestry,
+                            &self.data.names,
+                            &sex,
+                        )
                         .await
-                } else {
-                    String::default()
-                }
-            });
-            statblock.set_age(age);
-            statblock.set_age_range(*age_range);
-            statblock.set_sex(sex);
-            statblock.set_traits(traits.clone());
-            statblock
+                    } else {
+                        String::default()
+                    }
+                });
+                statblock.set_age(age);
+                statblock.set_age_range(*age_range);
+                statblock.set_sex(sex);
+                statblock.set_traits(traits.clone());
+                statblock
+            };
+
+            if let Some(ref archetype) = options.archetype {
+                let mut statblock = statblock.clone();
+                let archetype_background =
+                    Background::new(archetype.name(), vec![], Default::default());
+                statblock.set_perception(archetype.perception());
+                statblock.set_land_speed(archetype.speed());
+                statblock.set_skills(
+                    archetype
+                        .skills()
+                        .iter()
+                        .map(|(x, y)| (x.clone(), *y))
+                        .collect::<Vec<_>>(),
+                );
+                statblock.set_attributes(archetype.attributes().clone());
+                statblock.set_items(archetype.items_iter());
+                statblock.set_armor_class(archetype.armor_class());
+                statblock.set_fortitude_save(archetype.fortitude_save());
+                statblock.set_reflex_save(archetype.reflex_save());
+                statblock.set_will_save(archetype.will_save());
+                statblock.set_hit_points(archetype.hp());
+                statblock.set_level(archetype.level());
+                (Cow::Owned(archetype_background), statblock)
+            } else {
+                let mut stats_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
+
+                (
+                    background.clone(),
+                    generate_stats(
+                        &mut stats_rng,
+                        &ancestry,
+                        heritage.as_ref(),
+                        &background,
+                        &statblock,
+                    )?,
+                )
+            }
         };
 
-        let (background, statblock) = if let Some(ref archetype) = options.archetype {
-            let mut statblock = statblock.clone();
-            let archetype_background =
-                Background::new(archetype.name(), vec![], Default::default());
-            statblock.set_perception(archetype.perception());
-            statblock.set_land_speed(archetype.speed());
-            statblock.set_skills(
-                archetype
-                    .skills()
-                    .iter()
-                    .map(|(x, y)| (x.clone(), *y))
-                    .collect::<Vec<_>>(),
-            );
-            statblock.set_attributes(archetype.attributes().clone());
-            statblock.set_items(archetype.items_iter());
-            statblock.set_armor_class(archetype.armor_class());
-            statblock.set_fortitude_save(archetype.fortitude_save());
-            statblock.set_reflex_save(archetype.reflex_save());
-            statblock.set_will_save(archetype.will_save());
-            statblock.set_hit_points(archetype.hp());
-            statblock.set_level(archetype.level());
-            (Cow::Owned(archetype_background), statblock)
-        } else {
-            let mut stats_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
-
-            (
-                background.clone(),
-                generate_stats(
-                    &mut stats_rng,
-                    &ancestry,
-                    heritage.as_ref(),
-                    &background,
-                    &statblock,
-                )?,
-            )
-        };
-
-        let mut flavor_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
         Ok({
             let mut statblock = statblock.clone();
             statblock.set_ancestry(Some(ancestry.clone()));
             statblock.set_heritage(heritage.clone());
             statblock.set_flavor(if options.enable_flavor_text {
+                let mut flavor_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
                 self.generate_flavor(
                     ancestry.formats(),
                     self.scripts.clone(),
                     &mut flavor_rng,
-                    statblock.skills(),
-                    statblock.attributes(),
-                    &statblock.name(),
-                    None, // class not yet supported
-                    statblock.level(),
-                    statblock.age(),
-                    statblock.age_range(),
-                    statblock.perception(),
-                    statblock.fortitude_save(),
-                    statblock.reflex_save(),
-                    statblock.will_save(),
-                    &ancestry,
-                    heritage.as_ref(),
+                    &statblock,
                     &background,
-                    &statblock.sex(),
                 )
                 .await?
             } else {
@@ -351,38 +363,28 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         /* } */
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn generate_flavor(
         &self,
         formats: &Formats,
         generator_scripts: Arc<GeneratorScripts>,
         rng: &mut impl Rng,
-        _skills: &[(Skill, i16)],
-        _attributes: &AbilityStats,
-        name: impl AsRef<str>,
-        _class: Option<&str>,
-        _level: i8,
-        age: u64,
-        age_range: AgeRange,
-        _perception: i16,
-        _fortitude_save: i16,
-        _reflex_save: i16,
-        _will_save: i16,
-        ancestry: &Ancestry,
-        heritage: Option<&Heritage>,
+        unflavored_statblock: &Statblock,
         background: &Background,
-        sex: impl AsRef<str>,
-    ) -> Result<NpcFlavor, GenerationError> {
+    ) -> Result<NpcFlavor, FlavorGenerationError> {
+        let ancestry = unflavored_statblock
+            .ancestry()
+            .ok_or(FlavorGenerationError::AncestryIsNone)?;
+        let heritage = unflavored_statblock.heritage();
         Ok(NpcFlavor {
             description_line: generate_flavor_description_line(
                 generator_scripts,
                 formats,
-                name,
-                age,
-                age_range,
-                sex,
-                ancestry.name().as_ref(),
-                heritage.map(|x| x.name()).as_deref(),
+                unflavored_statblock.name(),
+                unflavored_statblock.age(),
+                unflavored_statblock.age_range(),
+                unflavored_statblock.sex(),
+                ancestry.name(),
+                heritage.map(Heritage::name).as_deref(),
                 background.name(),
                 None,
             )
@@ -392,8 +394,14 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
                 rng, formats, ancestry, heritage,
             )?,
             skin_line: generate_flavor_skin_line(rng, formats, ancestry, heritage),
+
             size_and_build_line: generate_size_and_build(
-                rng, formats, ancestry, age, age_range, heritage,
+                rng,
+                formats,
+                ancestry,
+                unflavored_statblock.age(),
+                unflavored_statblock.age_range(),
+                heritage,
             ),
             face_line: generate_flavor_face_line(rng, formats, ancestry),
             habit_line: generate_flavor_habit_line(rng, formats, ancestry),
@@ -490,6 +498,7 @@ fn generate_flavor_habit_line(
     // TODO
     String::default()
 }
+
 fn generate_stats(
     stats_rng: &mut rand::prelude::StdRng,
     ancestry: &Ancestry,
@@ -500,16 +509,20 @@ fn generate_stats(
     let level = pre_statblock.level();
     let mut attributes = AbilityStats::default();
 
+    let mut choices: LinkedList<LinkedList<AbilityBoost>> = LinkedList::new();
     let mut choosen_this_round = HashSet::new();
+    let mut current_choices: LinkedList<AbilityBoost> = LinkedList::new();
     for amod in ancestry.ability_modifications().iter() {
         match amod {
-            AbilityBoost::Boost(ability) => {
+            AbilityBoost::Boost(ability) if !choosen_this_round.contains(ability) => {
                 *attributes.get_ability_mut(*ability) += 1;
                 choosen_this_round.insert(ability);
+                current_choices.push_back(*amod);
             }
-            AbilityBoost::Flaw(ability) => {
+            AbilityBoost::Flaw(ability) if !choosen_this_round.contains(ability) => {
                 *attributes.get_ability_mut(*ability) -= 1;
                 choosen_this_round.insert(ability);
+                current_choices.push_back(*amod);
             }
             AbilityBoost::Free => {
                 let mut ability = Ability::values()
@@ -522,35 +535,62 @@ fn generate_stats(
                 }
 
                 *attributes.get_ability_mut(*ability) += 1;
+                choosen_this_round.insert(ability);
+                current_choices.push_back(AbilityBoost::Boost(*ability));
+            }
+            _ => continue,
+        }
+    }
+    choosen_this_round.clear();
+    choices.push_back(current_choices.clone());
+    current_choices.clear();
+    for _ in 0..2 {
+        let mut ability = Ability::values()
+            .choose(stats_rng)
+            .ok_or(AbilityGenerationError)?;
+        while choosen_this_round.contains(ability) {
+            ability = Ability::values()
+                .choose(stats_rng)
+                .ok_or(AbilityGenerationError)?;
+        }
+
+        *attributes.get_ability_mut(*ability) += 1;
+        choosen_this_round.insert(ability);
+        current_choices.push_back(AbilityBoost::Boost(*ability));
+    }
+
+    choices.push_back(current_choices.clone());
+    choosen_this_round.clear();
+    current_choices.clear();
+    for _ in 0..2 {
+        let mut ability = Ability::values()
+            .choose(stats_rng)
+            .ok_or(AbilityGenerationError)?;
+        while choosen_this_round.contains(ability) {
+            ability = Ability::values()
+                .choose(stats_rng)
+                .ok_or(AbilityGenerationError)?;
+        }
+
+        *attributes.get_ability_mut(*ability) += 1;
+
+        current_choices.push_back(AbilityBoost::Boost(*ability));
+    }
+
+    choices.push_back(current_choices.clone());
+    current_choices.clear();
+    // verify attributes
+    {
+        let mut is_valid = true;
+        for (attribute, value) in attributes.clone() {
+            if value > 4 {
+                error!("Given attribute is invalid: {:?}", attribute);
+                is_valid = false;
             }
         }
-    }
-    choosen_this_round.clear();
-    for _ in 0..4 {
-        let mut ability = Ability::values()
-            .choose(stats_rng)
-            .ok_or(AbilityGenerationError)?;
-        while choosen_this_round.contains(ability) {
-            ability = Ability::values()
-                .choose(stats_rng)
-                .ok_or(AbilityGenerationError)?;
+        if !is_valid {
+            info!("Attributes: {:?}", choices);
         }
-
-        *attributes.get_ability_mut(*ability) += 1;
-    }
-
-    choosen_this_round.clear();
-    for _ in 0..4 {
-        let mut ability = Ability::values()
-            .choose(stats_rng)
-            .ok_or(AbilityGenerationError)?;
-        while choosen_this_round.contains(ability) {
-            ability = Ability::values()
-                .choose(stats_rng)
-                .ok_or(AbilityGenerationError)?;
-        }
-
-        *attributes.get_ability_mut(*ability) += 1;
     }
 
     // calculate initial proficiencies
@@ -859,7 +899,7 @@ fn generate_flavor_hair_and_eyes_line(
     formats: &Formats,
     ancestry: &Ancestry,
     heritage: Option<&Heritage>,
-) -> Result<String, GenerationError> {
+) -> Result<String, FlavorLineGenerationError> {
     Ok(format!(
         "They have {} and {}.",
         generate_flavor_hairs(&mut rng, formats, ancestry, heritage)?,

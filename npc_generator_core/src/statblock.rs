@@ -87,6 +87,24 @@ impl AbilityStats {
     }
 }
 
+impl IntoIterator for AbilityStats {
+    type Item = (Ability, i8);
+
+    type IntoIter = core::array::IntoIter<Self::Item, 6>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        [
+            (Ability::Strength, self.strength),
+            (Ability::Dexterity, self.dexterity),
+            (Ability::Constitution, self.constitution),
+            (Ability::Intelligence, self.intelligence),
+            (Ability::Wisdom, self.wisdom),
+            (Ability::Charisma, self.charisma),
+        ]
+        .into_iter()
+    }
+}
+
 type StatblockString = Arc<str>;
 #[derive(Debug, Clone)]
 pub struct Statblock {
