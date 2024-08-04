@@ -7,6 +7,7 @@ use indicatif::ProgressStyle;
 use log::{error, info};
 use native_dialog::FileDialog;
 use npc_generator_core::generators::{GeneratorData, GeneratorScripts};
+use npc_generator_core::weight_presets::WeightPreset;
 use npc_generator_core::{generators::Generator, *};
 use rand::SeedableRng;
 #[cfg(feature = "rayon")]
@@ -37,7 +38,21 @@ fn generate_iterator(range: std::ops::Range<usize>) -> rayon::range::Iter<usize>
     range.into_par_iter()
 }
 
-fn generate_distribution_preview(sample_size: u64) -> Result<()> {
+fn generate_distribution_preview(sample_size: u64, preset_name: Option<&str>) -> Result<()> {
+    let weight_presets = load_weight_presets()?;
+    let current_weight_preset = if let Some(preset_name) = preset_name {
+        weight_presets.iter().find(|x| x.name() == preset_name)
+    } else {
+        None
+    };
+
+    if preset_name.is_some() && current_weight_preset.is_none() {
+        return Err(anyhow!(
+            "Given preset '{}' doesn't exist",
+            preset_name.unwrap()
+        ));
+    }
+
     let (generator_data, generator_scripts) = load_generator_data()?;
 
     let (results, heritages, errors, elapsed) = {
@@ -76,7 +91,7 @@ fn generate_distribution_preview(sample_size: u64) -> Result<()> {
                     enable_flavor_text: false,
                     ..Default::default()
                 };
-                match generator.generate(&npc_options) {
+                match generator.generate(&npc_options, current_weight_preset.cloned()) {
                     Ok(result) => {
                         let ancestry = result.ancestry().unwrap();
                         let heritage = result.heritage();
@@ -164,6 +179,8 @@ fn generate_character() -> Result<(), Box<dyn Error>> {
         ..Default::default()
     };
 
+    let weight_presets = load_weight_presets()?;
+
     let (generator_data, generator_scripts) = load_generator_data()?;
     eframe::run_native(
         "Character Generator",
@@ -173,6 +190,7 @@ fn generate_character() -> Result<(), Box<dyn Error>> {
                 cc,
                 generator_data.clone(),
                 generator_scripts,
+                weight_presets,
             ))
         }),
     )?;
@@ -305,6 +323,56 @@ fn load_generator_data_from_directory(
     Ok((generator_data, generator_scripts))
 }
 
+fn load_weight_presets() -> Result<Vec<Arc<WeightPreset>>> {
+    if let Some(weight_preset_path) = {
+        if let Some(path) = dirs::config_dir() {
+            let mut path = path;
+            path.push("pf2e_npc_generator");
+            path.push("weight_presets");
+            if path.exists() && path.is_dir() {
+                Some(path)
+            } else {
+                info!("Weight Preset directory doesn't exist, trying to create it");
+                if let Err(x) = fs::create_dir_all(path) {
+                    error!("Error creating weight preset directory: {x}");
+                }
+                None
+            }
+        } else {
+            None
+        }
+    } {
+        let mut weight_presets = Vec::new();
+        fn add_entry(
+            weight_presets: &mut Vec<Arc<WeightPreset>>,
+            entry: Result<fs::DirEntry, io::Error>,
+        ) -> Result<(), anyhow::Error> {
+            let entry = entry?;
+            let path = entry.path();
+
+            if entry.file_type()?.is_dir() {
+                info!("Skipping directory {path:?}");
+                return Ok(());
+            }
+
+            if !path.extension().map(|x| x == "ron").unwrap_or(false) {
+                return Err(anyhow!("Unknown file: {path:?}"));
+            }
+
+            weight_presets.push(ron::from_str(&fs::read_to_string(path)?)?);
+            Ok(())
+        }
+        for entry in weight_preset_path.read_dir()? {
+            if let Err(x) = add_entry(&mut weight_presets, entry) {
+                error!("{x}");
+            }
+        }
+        Ok(weight_presets)
+    } else {
+        Ok(Vec::new())
+    }
+}
+
 fn load_generator_data() -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> {
     let generator_data = std::env::current_dir().map(load_generator_data_from_directory);
     fn handle_err() -> Result<(Arc<GeneratorData>, Arc<GeneratorScripts>)> {
@@ -382,6 +450,9 @@ struct Args {
 
     #[arg(short, long, default_value_t = 2_000_000)]
     sample_size: u64,
+
+    #[arg(long, default_value = None)]
+    preset: Option<String>,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -390,9 +461,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     match args.mode {
         Mode::Statistics => {
-            generate_distribution_preview(args.sample_size)?;
+            generate_distribution_preview(args.sample_size, args.preset.as_deref())?;
             Ok(())
         }
-        Mode::Interactive => generate_character(),
+        Mode::Interactive => {
+            generate_character()?;
+            Ok(())
+        }
     }
 }

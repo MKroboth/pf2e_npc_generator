@@ -42,6 +42,7 @@ pub use archetype::*;
 mod npc_options;
 pub use npc_options::*;
 pub mod formats;
+pub mod weight_presets;
 
 #[macro_export]
 macro_rules! traits {

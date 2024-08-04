@@ -2,6 +2,7 @@ use std::{borrow::Cow, fmt::Display, sync::Arc};
 
 use npc_generator_core::{
     generators::{Generator, GeneratorData, GeneratorScripts},
+    weight_presets::WeightPreset,
     NamedElement, NpcOptions, Statblock,
 };
 use rand::SeedableRng;
@@ -11,6 +12,7 @@ pub struct UserInterface {
     generator: Generator<rand::rngs::StdRng>,
     data: UIData,
     resulting_statblock: Option<Statblock>,
+    weight_presets: Arc<[Arc<WeightPreset>]>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
@@ -44,6 +46,7 @@ struct UIData {
     generated_text: String,
     npc_options: NpcOptions,
     use_archetype: bool,
+    current_weight_preset: Option<Arc<WeightPreset>>,
 }
 
 impl UserInterface {
@@ -52,6 +55,7 @@ impl UserInterface {
         _cc: &eframe::CreationContext<'_>,
         generator_data: Arc<GeneratorData>,
         generator_scripts: Arc<GeneratorScripts>,
+        weight_presets: impl AsRef<[Arc<WeightPreset>]>,
     ) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
@@ -73,6 +77,7 @@ impl UserInterface {
             )
             .unwrap(),
             resulting_statblock: Default::default(),
+            weight_presets: weight_presets.as_ref().into(),
         }
     }
 }
@@ -117,8 +122,10 @@ impl eframe::App for UserInterface {
                     )
                     .clicked()
                 {
-                    self.resulting_statblock = match self.generator.generate(&self.data.npc_options)
-                    {
+                    self.resulting_statblock = match self.generator.generate(
+                        &self.data.npc_options,
+                        self.data.current_weight_preset.clone(),
+                    ) {
                         Ok(x) => Some(x),
                         Err(_err) => {
                             // todo pop-up error dialog
@@ -150,6 +157,42 @@ impl eframe::App for UserInterface {
                         self.data.npc_options.archetype = None;
                     }
                 }
+
+                egui::ComboBox::from_label("Weight Preset")
+                    .selected_text(format!(
+                        "{}",
+                        &self
+                            .data
+                            .current_weight_preset
+                            .as_ref()
+                            .map(|x| x.name())
+                            .unwrap_or("Default Weights".into())
+                    ))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.data.current_weight_preset,
+                            None,
+                            "Default Weights",
+                        );
+                        for (value, name) in self.weight_presets.iter().map(|x| (x, x.name())) {
+                            ui.selectable_value(
+                                &mut self.data.current_weight_preset,
+                                Some(value.clone()),
+                                name,
+                            );
+                        }
+                    });
+                ui.label("?").on_hover_ui(|ui| {
+                    ui.label(format!(
+                        "Your presets are stored in {:?}",
+                        dirs::config_dir().map(|path| {
+                            let mut path = path.clone();
+                            path.push("pf2e_npc_generator");
+                            path.push("weight_presets");
+                            path
+                        })
+                    ));
+                });
             });
             ui.separator();
             ui.horizontal(|ui| {

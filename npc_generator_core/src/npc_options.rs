@@ -6,7 +6,6 @@ pub struct NpcOptions {
     pub ancestry: Option<Ancestry>,
     pub heritage: Option<Option<Heritage>>,
     pub background: Option<Background>,
-    pub ancestry_weights: Option<WeightMap<String>>,
     pub archetype: Option<Archetype>,
     pub age_range: Option<AgeRange>,
     pub sex: Option<String>,

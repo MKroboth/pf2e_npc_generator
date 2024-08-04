@@ -1,4 +1,5 @@
 use self::formats::Formats;
+use self::weight_presets::WeightPreset;
 
 use super::*;
 use log::{debug, error, info};
@@ -7,6 +8,7 @@ use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
 use std::borrow::Cow;
 use std::collections::{HashMap, LinkedList};
+use std::hash::Hash;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio;
@@ -147,11 +149,12 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
         Ok((age_range, valid_ages.choose(rng).ok_or(AgeGenerationError)?))
     }
 
-    async fn generate_ancestry(
+    fn generate_ancestry(
         &self,
         rng: &mut impl Rng,
-        ancestry_weights: Option<&WeightMap<String>>,
-    ) -> Result<Ancestry, AncestryGenerationError> {
+        ancestry_weights: Option<&WeightMap<Arc<str>>>,
+    ) -> Result<Ancestry, AncestryGenerationError>
+where {
         let ancestry = {
             let (values, distribution) = if let Some(ancestry_weights) = ancestry_weights {
                 self.data
@@ -172,18 +175,19 @@ impl<R: rand::Rng + Send + Sync> Generator<R> {
     }
 
     #[tokio::main(flavor = "current_thread")]
-    pub async fn generate(&mut self, options: &NpcOptions) -> Result<Statblock, GenerationError> {
+    pub async fn generate(
+        &mut self,
+        options: &NpcOptions,
+        weight_preset: Option<Arc<WeightPreset>>,
+    ) -> Result<Statblock, GenerationError> {
         let mut rng = rngs::StdRng::from_rng(&mut self.random_number_generator).unwrap();
-        let ancestry_weights = options.ancestry_weights.as_ref();
+        let ancestry_weights = weight_preset.as_ref().map(|x| x.ancestry_weights());
 
         let ancestry = {
             let mut ancestry_rng = rngs::StdRng::from_rng(&mut rng).unwrap();
             match options.ancestry.clone() {
                 Some(x) => x,
-                None => {
-                    self.generate_ancestry(&mut ancestry_rng, ancestry_weights)
-                        .await?
-                }
+                None => self.generate_ancestry(&mut ancestry_rng, ancestry_weights)?,
             }
             .clone()
         };
@@ -487,7 +491,7 @@ fn generate_size_and_build(
         Size::Garganutan => 48,
     };
 
-    format!("They have a bulk of {bulk}")
+    format!("They have a bulk of {bulk}.")
 }
 
 fn generate_flavor_face_line(
