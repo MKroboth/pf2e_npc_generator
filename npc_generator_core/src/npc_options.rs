@@ -1,4 +1,4 @@
-use crate::{AgeRange, Ancestry, Archetype, Background, Heritage, WeightMap};
+use crate::{AgeRange, Ancestry, Archetype, Background, Heritage};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Serialize, Deserialize)]
