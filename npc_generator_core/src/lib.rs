@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -43,16 +44,3 @@ mod npc_options;
 pub use npc_options::*;
 pub mod formats;
 pub mod weight_presets;
-
-#[macro_export]
-macro_rules! traits {
-    [] => (vec![]);
-    [$($literal:literal),+ $(,)?] => ( vec![ $(Trait::new($literal)),+ ] );
-
-}
-#[macro_export]
-macro_rules! language {
-    ($literal:literal $($traits:literal),* $(,)?) => (
-    Language::new(vec![$($traits),*], $literal) );
-
-}

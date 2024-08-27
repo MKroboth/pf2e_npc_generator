@@ -72,3 +72,18 @@ impl Display for AgeRange {
         )
     }
 }
+
+impl AgeRange {
+    pub fn values() -> &'static [AgeRange] {
+        static AGE_RANGES: [AgeRange; 7] = [
+            AgeRange::Infant,
+            AgeRange::Child,
+            AgeRange::Youth,
+            AgeRange::Adult,
+            AgeRange::MiddleAged,
+            AgeRange::Old,
+            AgeRange::Venerable,
+        ];
+        &AGE_RANGES
+    }
+}

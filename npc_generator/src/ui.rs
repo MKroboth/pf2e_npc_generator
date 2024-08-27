@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Display, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 use npc_generator_core::{
     generators::{Generator, GeneratorData, GeneratorScripts},
@@ -49,6 +49,7 @@ impl UserInterface {
             weight_presets: weight_presets.as_ref().into(),
         }
     }
+
     #[inline]
     fn show_top_panel(ctx: &egui::Context) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -126,7 +127,6 @@ impl UserInterface {
     }
 
     #[inline]
-
     fn ui_weight_preset_combobox(&mut self, ui: &mut egui::Ui) {
         egui::ComboBox::from_label("Weight Preset")
             .selected_text(format!(
@@ -174,12 +174,12 @@ impl UserInterface {
                     .npc_options
                     .ancestry
                     .as_ref()
-                    .map(|x| String::from(x.name().as_ref()))
+                    .map(NamedElement::name)
+                    .as_deref()
                 {
                     None => String::from("Generate"),
-                    Some(x) => x,
-                }
-                .to_string(),
+                    Some(x) => x.to_string(),
+                },
             )
             .show_ui(ui, |ui| {
                 if ui
@@ -202,6 +202,7 @@ impl UserInterface {
                 }
             });
     }
+
     #[inline]
     fn ui_heritage_combobox(&mut self, ui: &mut egui::Ui) {
         egui::ComboBox::from_label("Heritage")
@@ -265,12 +266,11 @@ impl UserInterface {
                     .npc_options
                     .background
                     .as_ref()
-                    .map(|x| String::from(x.name()))
+                    .map(NamedElement::name)
                 {
                     None => String::from("Generate"),
-                    Some(x) => x,
-                }
-                .to_string(),
+                    Some(x) => x.to_string(),
+                },
             )
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut self.data.npc_options.background, None, "Generate");
@@ -293,7 +293,7 @@ impl UserInterface {
                     .npc_options
                     .age_range
                     .as_ref()
-                    .map(|x| x.to_string())
+                    .map(ToString::to_string)
                 {
                     None => String::from("Generate"),
                     Some(x) => x,
@@ -302,41 +302,14 @@ impl UserInterface {
             )
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut self.data.npc_options.age_range, None, "Generate");
-                ui.selectable_value(
-                    &mut self.data.npc_options.age_range,
-                    Some(npc_generator_core::AgeRange::Infant),
-                    "Infant",
-                );
 
-                ui.selectable_value(
-                    &mut self.data.npc_options.age_range,
-                    Some(npc_generator_core::AgeRange::Child),
-                    "Child",
-                );
-
-                ui.selectable_value(
-                    &mut self.data.npc_options.age_range,
-                    Some(npc_generator_core::AgeRange::Youth),
-                    "Youth",
-                );
-
-                ui.selectable_value(
-                    &mut self.data.npc_options.age_range,
-                    Some(npc_generator_core::AgeRange::Adult),
-                    "Adult",
-                );
-
-                ui.selectable_value(
-                    &mut self.data.npc_options.age_range,
-                    Some(npc_generator_core::AgeRange::Old),
-                    "Old",
-                );
-
-                ui.selectable_value(
-                    &mut self.data.npc_options.age_range,
-                    Some(npc_generator_core::AgeRange::Venerable),
-                    "Venerable",
-                );
+                for value in npc_generator_core::AgeRange::values() {
+                    ui.selectable_value(
+                        &mut self.data.npc_options.age_range,
+                        Some(*value),
+                        value.to_string(),
+                    );
+                }
             });
     }
 
@@ -354,11 +327,10 @@ impl UserInterface {
             |ui| {
                 egui::ComboBox::from_label("Sex")
                     .selected_text(
-                        match self.data.npc_options.sex.as_ref().map(|x| x.to_string()) {
+                        match self.data.npc_options.sex.as_ref().map(ToString::to_string) {
                             None => String::from("Generate"),
                             Some(x) => x,
-                        }
-                        .to_string(),
+                        },
                     )
                     .show_ui(ui, |ui| {
                         ui.selectable_value(&mut self.data.npc_options.sex, None, "Generate");

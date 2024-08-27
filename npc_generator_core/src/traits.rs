@@ -18,8 +18,20 @@ impl Trait {
     }
 }
 
+impl Default for Trait {
+    fn default() -> Self {
+        Self(String::default().into())
+    }
+}
+
 impl AsRef<str> for Trait {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl Into<String> for Trait {
+    fn into(self) -> String {
+        self.0.to_string()
     }
 }

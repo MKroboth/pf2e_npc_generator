@@ -8,7 +8,6 @@ use rand::seq::{IteratorRandom, SliceRandom};
 use rand::{rngs, Rng, SeedableRng};
 use std::borrow::Cow;
 use std::collections::{HashMap, LinkedList};
-use std::hash::Hash;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio;

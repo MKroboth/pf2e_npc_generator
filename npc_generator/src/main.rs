@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+
 use clap::{Parser, ValueEnum};
 #[cfg(feature = "rayon")]
 use indicatif::ParallelProgressIterator;
